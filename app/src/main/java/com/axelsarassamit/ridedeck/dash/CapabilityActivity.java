@@ -15,6 +15,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.BatteryManager;
+import android.view.WindowInsets;
+import android.graphics.Insets;
 
 /** Setup-only capability inspector. Does not open cameras or begin recording. */
 public final class CapabilityActivity extends Activity {
@@ -70,6 +72,16 @@ public final class CapabilityActivity extends Activity {
         report.append("\n\nRecording is not implemented in this foundation.\nThe next step is a recording-session test on the Xiaomi 14T Pro. Advertised camera modes do not establish stable dual recording.");
         text.setText(report);
         ScrollView scroll = new ScrollView(this);
+        scroll.setOnApplyWindowInsetsListener((view, insets) -> {
+            if (Build.VERSION.SDK_INT >= 30) {
+                Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            } else {
+                view.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(),
+                    insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom());
+            }
+            return insets;
+        });
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
         page.addView(text);
@@ -85,5 +97,6 @@ public final class CapabilityActivity extends Activity {
         page.addView(update);
         scroll.addView(page);
         setContentView(scroll);
+        scroll.requestApplyInsets();
     }
 }
