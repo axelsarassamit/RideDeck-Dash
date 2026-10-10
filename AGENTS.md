@@ -10,4 +10,5 @@
 - Keep release keystores, passwords, telemetry credentials and provider keys out of Git. Use repository secrets and the preserved private signing backup.
 - Releases require numeric vMAJOR.MINOR.PATCH tags, increasing versionCode, the same signing key, ridedeck-dash-release.apk, checksums.txt and source.txt.
 - Never claim dual recording, stabilization, speed telemetry or screen-off reliability without physical verification. The current app is a development capability inspector.
+- Whenever the user's phone is connected and authorized, install and smoke-test changes as part of validation. The user explicitly authorizes this. Verify device identity and install with replacement to preserve data. Never uninstall an existing app or modify unrelated phone settings merely to bypass an installation/test failure. Report device prompts or blocked installation accurately. Test only implemented behavior; do not claim that unimplemented recording works.
 - Synced project sources are read-only. Canonical development checkout is C:\Applications\RideDeck-Dash.
