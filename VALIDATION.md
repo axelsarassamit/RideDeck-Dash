@@ -1,14 +1,40 @@
-# Foundation validation
+# RideDeck Dash 0.2.0 validation
 
-Date: 2026-10-10
+## Build checks
 
-- Debug assembly and eight JUnit tests: PASS. Tests cover the charger OR 50% battery boundary, unknown battery state, standalone visibility, background-host requirement and loss of eligibility.
-- Debug and release Android lint: PASS with warnings for retained target SDK 35, pinned AndroidX version and English UI strings. No lint errors.
-- Permanent-signer release builds v0.1.0 (versionCode 100) and v0.1.1 (versionCode 101): PASS. Both APK signatures verify, with certificate SHA-256 cef073342e133ad4c6650da1a276ae4ad03e3396cecac67143154aeb6e6c731b.
-- Repository signing secrets configured. The key backup and DPAPI-protected password remain outside Git in the ignored, access-restricted .private/signing directory.
-- Update checker verifies hash, package, increasing version and installed signer before offering Android's installer. End-to-end phone installation and download tests have not been performed.
-- The app is a capability inspector and update foundation. Caller authentication, recording, loop storage, maps, GPS acquisition and Y-Connect telemetry are not implemented yet.
-- No phone test yet. Dual encoding, stabilization, recording continuity and heat remain unverified.
-- Existing RideDeck apps are unchanged. Their latest Android workflows were successful when inspected: standard bfa631f374f990969684c1816a8ba2e2223d0ebc and Yamaha 2d192c7341b9733e5f63c50149fce73ae7cd073f.
-- GitHub workflow and release results must be checked against the actual pushed commit; local build success alone does not establish CI success.
-- Initial workflows failed because setup-android requested the discontinued tools SDK package. Both workflows now explicitly request platform-tools. The failed v0.1.0 tag is preserved; the corrected development release uses v0.1.1.
+2026-10-10: 10 unit tests passed. Debug and release lint passed. The signed release APK assembled successfully with the permanent Dash signing certificate:
+cef073342e133ad4c6650da1a276ae4ad03e3396cecac67143154aeb6e6c731b.
+
+Tests cover charger OR 50 percent boundaries, unknown battery, foreground/background authorization, lease ownership/expiry, numeric release versions, and preservation of protected or interrupted files during loop recycling.
+
+A stale idle Gradle process held an old classes.dex open on Windows. Its lock ownership and completed Dash build were verified before stopping that process. A clean build then passed. No signing material or footage is tracked in Git.
+
+## Xiaomi 14T Pro physical checks
+
+Device: 2407FPN8EG, Android 16 / API 36, HyperOS 3. USB authorized. Signed replacement installation succeeded over Dash 0.1.3, preserving the application ID and existing app data. Later 0.2.0 development builds also installed in place.
+
+- Both camera IDs 0 and 1 opened together and recorded separate H.264 1280 x 720 files.
+- First short exports decoded fully: rear 1,422 frames / 47.335 seconds; front 1,438 frames / 47.895 seconds, approximately 30 fps. Maximum adjacent frame interval in that short sample: rear 0.043 seconds, front 0.033 seconds.
+- Front capture results reported EIS mode 2. Rear EIS modes 2 and 1 were ignored in the tested dual configuration, both reporting 0 after warm-up. The fallback to rear OIS mode 1 was confirmed by capture results at frame 240. The dashboard now labels applied stabilization rather than requested settings.
+- Portrait to landscape and back retained capture. Landscape controls were moved into a second column after the first UI test, then physically checked with Start, Protect and Stop visible.
+- Protect clip markers survived stopping and signed app replacement. Protected current/next files stayed marked; later files beyond the protection window were unprotected.
+- Both cameras rolled into segment 2 and then segment 3 during a session of roughly 131 seconds. MediaRecorder used next-output-file handover, without restarting the cameras for normal rollover. Segment events and monotonic timestamps are exported in capture.csv.
+- The exported second segments each decoded fully with 1,698 frames at approximately 30 fps, with maximum adjacent frame interval 0.033 seconds in both tracks.
+- GPS speed was shown as GPS, with timestamped coordinates, accuracy and speed saved in route.csv. A 26-sample short export contained valid UTC/monotonic timestamps and 26 speed readings. Stationary indoor GPS can drift; this is not a speed-accuracy road test.
+- Saved historical trace and OpenStreetMap tiles rendered on the phone with attribution. The public Valhalla endpoint returned a valid motorcycle route for an independent Bangkok test request. Actual turn-by-turn riding was not tested or implemented.
+- Gallery video export and Downloads CSV export succeeded. Footage and actual coordinates are kept only in private test files, never committed or published.
+- Standalone recording stopped after screen off without a companion lease and did not restart on returning to Dash.
+- Standard RideDeck 0.12.10 was installed using its verified original signing identity. Resume authenticated a live background lease. Dual capture continued with the phone screen off for approximately 55 seconds, exceeding the 15-second lease duration and crossing a video rollover. After host Pause and keeping Dash backgrounded, recording stopped and files finalized.
+- The shell caller was rejected by the exported bridge with SecurityException. A caller-supplied package name cannot authorize recording.
+- Physical recording succeeded while USB-powered at 36 percent battery, confirming the charger alternative below 50 percent. The unplugged low-battery and unknown-battery boundaries are unit-tested; no phone battery readings were spoofed.
+
+## Coordinated host builds
+
+Standard integration head: c4999cb758acf9aeb7e95798a92cb37a72d37460. Android run 38052170721 passed.
+Yamaha integration head: 58478d978e8856d4e16e7e685d8dc1c915761dcd. Android run 38068085546 passed. Signed Yamaha 0.12.26 installed. Its explicit ride session authenticated Dash, and dual recording continued with the screen off for over a minute. End ride cleared the session. A subsequent Dash restart reused rear optical and front electronic stabilization. Final Yamaha menu styling is being verified in its own chat.
+
+## Limits
+
+This is a development dashcam release. No motorbike ride, sustained heat/storage-pressure test, perceptual shake-reduction comparison, crash recovery of damaged MP4s or real Y-Connect speed feed has been validated. There is no live camera preview, burned-in speed overlay or spoken turn-by-turn navigation yet. Public map/routing service availability is not guaranteed. Interrupted MP4s are retained but may be unplayable. Android devices other than the tested Xiaomi are not physically validated.
+
+The stable updater intentionally excludes development prereleases. The permanent app ID, increasing numeric version code and preserved signing key support in-place updates. GitHub build and signed-release run IDs for the final commit are verified after publication.

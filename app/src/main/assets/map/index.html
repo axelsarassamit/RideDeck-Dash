@@ -1,0 +1,10 @@
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="leaflet.css"><style>html,body,#map{height:100%;margin:0;background:#101c24}.leaflet-control-attribution{font-size:11px}</style></head><body><div id="map"></div><script src="leaflet.js"></script><script>
+const map=L.map('map',{attributionControl:true}).setView([0,0],2);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);
+const trace=L.polyline([],{color:'#90c8ff',weight:5}).addTo(map);
+const planned=L.polyline([],{color:'#ffa44c',weight:5}).addTo(map);
+let marker,centered=false;
+function update(points,current){trace.setLatLngs(points);if(current){if(!marker)marker=L.circleMarker(current,{radius:8,color:'#f4f6fa'}).addTo(map);else marker.setLatLng(current);if(!centered){map.setView(current,16);centered=true;}}else if(points.length&&!centered){map.fitBounds(trace.getBounds(),{padding:[20,20]});centered=true;}}
+function plan(points){planned.setLatLngs(points);map.fitBounds(planned.getBounds(),{padding:[20,20]});}
+map.on('click',e=>Dash.destination(e.latlng.lat,e.latlng.lng));
+</script></body></html>

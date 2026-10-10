@@ -1,0 +1,323 @@
+package com.axelsarassamit.ridedeck.dash;
+
+import android.Manifest;
+import android.app.*;
+import android.content.*;
+import android.content.pm.PackageManager;
+import android.content.pm.ServiceInfo;
+import android.hardware.camera2.*;
+import android.location.*;
+import android.media.MediaRecorder;
+import android.os.*;
+import android.util.Size;
+import android.view.Surface;
+import java.io.*;
+import java.util.*;
+
+/** Camera ownership and file rollover live here, never in the rotating dashboard. */
+public final class RecordingService extends Service {
+    public static volatile boolean running;
+    public static volatile String state = "Ready to record";
+    public static volatile String cameraStatus = "Rear + front, 720p / 30 fps";
+    public static volatile Location position;
+    public static volatile File rideDirectory;
+    private HandlerThread thread;
+    private Handler worker;
+    private ClipStore store;
+    private final List<Track> tracks = new ArrayList<>();
+    private LocationManager locations;
+    private BufferedWriter route;
+    private PowerManager.WakeLock wake;
+    private boolean stopping;
+    private long protectUntil;
+    private int rotation;
+    private int startedTracks;
+    private BufferedWriter events;
+    private final BroadcastReceiver battery = new BroadcastReceiver() {
+        @Override public void onReceive(Context c, Intent i) { if (worker != null) worker.post(() -> enforceGate(i)); }
+    };
+    private final LocationListener gps = new LocationListener() {
+        @Override public void onLocationChanged(Location p) {
+            if (!running || route == null) return;
+            position = new Location(p);
+            try {
+                route.write(String.format(Locale.ROOT, "%d,%d,%.8f,%.8f,%.1f,%s\n", p.getTime(), p.getElapsedRealtimeNanos(),
+                    p.getLatitude(), p.getLongitude(), p.getAccuracy(), p.hasSpeed() ? Float.toString(p.getSpeed()) : ""));
+                route.flush();
+            } catch (IOException error) { fail("Route could not be saved"); }
+        }
+        @Override public void onProviderDisabled(String provider) { position = null; }
+        @Override public void onProviderEnabled(String provider) {}
+        @Override public void onStatusChanged(String p, int s, Bundle b) {}
+    };
+    @Override public void onCreate() {
+        super.onCreate();
+        thread = new HandlerThread("DashCapture"); thread.start(); worker = new Handler(thread.getLooper());
+        store = new ClipStore(this);
+        getSystemService(NotificationManager.class).createNotificationChannel(
+            new NotificationChannel("recording", "Dash recording", NotificationManager.IMPORTANCE_LOW));
+    }
+    @Override public int onStartCommand(Intent intent, int flags, int id) {
+        String action = intent == null ? "STOP" : intent.getAction();
+        if ("STOP".equals(action)) { worker.post(() -> finish("Recording stopped")); return START_NOT_STICKY; }
+        if ("PROTECT".equals(action)) { worker.post(this::protect); return START_NOT_STICKY; }
+        if (running) return START_NOT_STICKY;
+        if (!DashApplication.isVisible()) { stopSelf(); return START_NOT_STICKY; }
+        rotation = intent == null ? 0 : intent.getIntExtra("rotation", 0);
+        int types = Build.VERSION.SDK_INT >= 30 ? ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA : 0;
+        if (Build.VERSION.SDK_INT >= 29 && checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+            types |= ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION;
+        if (Build.VERSION.SDK_INT >= 29 && types != 0) startForeground(1, notification("Starting cameras"), types);
+        else startForeground(1, notification("Starting cameras"));
+        running = true; stopping = false; state = "Starting cameras";
+        registerReceiver(battery, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        worker.post(() -> begin(intent == null ? "dual" : intent.getStringExtra("mode")));
+        return START_NOT_STICKY;
+    }
+    private Notification notification(String text) {
+        PendingIntent open = PendingIntent.getActivity(this, 0, new Intent(this, DashboardActivity.class), PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent stop = PendingIntent.getService(this, 1, new Intent(this, RecordingService.class).setAction("STOP"), PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent protect = PendingIntent.getService(this, 2, new Intent(this, RecordingService.class).setAction("PROTECT"), PendingIntent.FLAG_IMMUTABLE);
+        return new Notification.Builder(this, "recording").setSmallIcon(com.axelsarassamit.ridedeck.dash.R.drawable.ic_dash)
+            .setContentTitle("RideDeck Dash").setContentText(text).setContentIntent(open).setOngoing(true)
+            .addAction(new Notification.Action.Builder(null, "Protect clip", protect).build())
+            .addAction(new Notification.Action.Builder(null, "Stop", stop).build()).build();
+    }
+    private void begin(String mode) {
+        try {
+            Intent power = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+            if (!enforceGate(power)) return;
+            store.reserve(128L * 1024 * 1024);
+            rideDirectory = new File(store.root(), Long.toString(System.currentTimeMillis()));
+            if (!rideDirectory.mkdirs()) throw new IOException("Cannot create ride folder");
+            route = new BufferedWriter(new FileWriter(new File(rideDirectory, "route.csv")));
+            route.write("utc_ms,elapsed_ns,latitude,longitude,accuracy_m,speed_m_s\n"); route.flush();
+            events = new BufferedWriter(new FileWriter(new File(rideDirectory, "capture.csv")));
+            events.write("utc_ms,elapsed_ns,sensor_ns,camera,event,eis,ois,file\n"); events.flush();
+            position = null; startedTracks = 0; protectUntil = 0;
+            CameraManager manager = getSystemService(CameraManager.class);
+            String rear = null, front = null;
+            for (String camera : manager.getCameraIdList()) {
+                Integer facing = manager.getCameraCharacteristics(camera).get(CameraCharacteristics.LENS_FACING);
+                if (Objects.equals(facing, CameraCharacteristics.LENS_FACING_BACK) && rear == null) rear = camera;
+                if (Objects.equals(facing, CameraCharacteristics.LENS_FACING_FRONT) && front == null) front = camera;
+            }
+            if ("dual".equals(mode)) {
+                if (rear == null || front == null || Build.VERSION.SDK_INT < 30) throw new IOException("Dual camera recording unavailable. Select one camera.");
+                boolean supported = false;
+                for (Set<String> group : manager.getConcurrentCameraIds()) if (group.contains(rear) && group.contains(front)) supported = true;
+                if (!supported) throw new IOException("Phone does not advertise simultaneous front and rear cameras.");
+            }
+            if (!"front".equals(mode)) tracks.add(new Track(manager, rear, "rear"));
+            if (!"rear".equals(mode)) tracks.add(new Track(manager, front, "front"));
+            for (Track track : tracks) track.prepare();
+            // Concurrent camera devices must be opened before any capture session is configured.
+            for (Track track : tracks) track.open();
+            locations = getSystemService(LocationManager.class);
+            if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+                locations.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, gps, thread.getLooper());
+            wake = getSystemService(PowerManager.class).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "RideDeckDash:Capture");
+            wake.acquire(12 * 60 * 60 * 1000L);
+            worker.postDelayed(gateTick, 500);
+            worker.postDelayed(() -> { if (running && startedTracks != tracks.size()) fail("Camera start timed out"); }, 15000);
+        } catch (Exception error) { fail(error.getMessage()); }
+    }
+    private final Runnable gateTick = new Runnable() {
+        @Override public void run() {
+            if (!running || stopping) return;
+            if (enforceGate(registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED)))) worker.postDelayed(this, 500);
+        }
+    };
+    private boolean enforceGate(Intent power) {
+        if (!running || stopping) return false;
+        boolean plugged = power != null && power.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0;
+        int percent = power == null ? -1 : RecordingGate.batteryPercent(power.getIntExtra(BatteryManager.EXTRA_LEVEL, -1), power.getIntExtra(BatteryManager.EXTRA_SCALE, -1));
+        RecordingGate.Result gate = RecordingGate.evaluate(plugged, percent, DashApplication.isVisible(),
+            DashBridgeProvider.SESSIONS.isActive(SystemClock.elapsedRealtime()));
+        if (gate != RecordingGate.Result.ALLOWED) {
+            finish(gate == RecordingGate.Result.COMPANION_REQUIRED ? "Stopped: no active RideDeck ride session" : "Stopped: connect charger or charge to 50%");
+            return false;
+        }
+        return true;
+    }
+    private void protect() {
+        if (!running || stopping) return;
+        protectUntil = SystemClock.elapsedRealtime() + 60000;
+        try {
+            for (Track track : tracks) {
+                if (track.current != null) ClipStore.mark(track.current, ".protected");
+                if (track.next != null) ClipStore.mark(track.next, ".protected");
+            }
+            for (File f : store.clips()) if (f.lastModified() >= System.currentTimeMillis() - 60000) ClipStore.mark(f, ".protected");
+            state = "Recording · clip protected";
+            getSystemService(NotificationManager.class).notify(1, notification(state));
+        } catch (IOException error) { fail("Cannot protect clip"); }
+    }
+    private void fail(String message) { finish("Stopped: " + (message == null ? "camera error" : message)); }
+    private void finish(String reason) {
+        if (stopping) return;
+        stopping = true; running = false; state = reason;
+        worker.removeCallbacksAndMessages(null);
+        for (Track track : tracks) track.close(); tracks.clear();
+        if (locations != null) try { locations.removeUpdates(gps); } catch (SecurityException ignored) {}
+        if (route != null) try { route.close(); } catch (IOException ignored) {}
+        route = null; position = null;
+        if (events != null) try { events.close(); } catch (IOException ignored) {}
+        events = null;
+        try { unregisterReceiver(battery); } catch (IllegalArgumentException ignored) {}
+        if (wake != null && wake.isHeld()) wake.release();
+        stopForeground(STOP_FOREGROUND_REMOVE); stopSelf();
+    }
+    @Override public void onDestroy() {
+        if (worker != null) worker.post(() -> { finish("Recording stopped"); thread.quitSafely(); });
+        super.onDestroy();
+    }
+    @Override public IBinder onBind(Intent intent) { return null; }
+
+    private final class Track {
+        final CameraManager manager; final String id, label;
+        CameraDevice camera; CameraCaptureSession session; MediaRecorder recorder;
+        File current, next; boolean recording; int count; int eis, ois; Size size;
+        int frames;
+        Integer appliedEis, appliedOis;
+        boolean basicEis, opticalAvailable;
+        CaptureRequest.Builder request;
+        String modeKey;
+        Track(CameraManager m, String cameraId, String name) throws IOException {
+            if (cameraId == null) throw new IOException(name + " camera unavailable");
+            manager = m; id = cameraId; label = name;
+        }
+        File file() throws IOException {
+            store.reserve(48L * 1024 * 1024);
+            File f = new File(rideDirectory, label + "-" + String.format(Locale.ROOT, "%04d", ++count) + ".mp4");
+            if (SystemClock.elapsedRealtime() < protectUntil) ClipStore.mark(f, ".protected");
+            return f;
+        }
+        void prepare() throws Exception {
+            CameraCharacteristics c = manager.getCameraCharacteristics(id);
+            Size[] choices = c.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP).getOutputSizes(MediaRecorder.class);
+            size = null;
+            for (Size choice : choices) if (choice.getWidth() == 1280 && choice.getHeight() == 720) size = choice;
+            if (size == null) throw new IOException(label + " camera has no 720p recording mode");
+            int[] modes = c.get(CameraCharacteristics.CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES);
+            // Preview stabilization mode also stabilizes video streams on supporting devices.
+            for (int value : modes == null ? new int[0] : modes) if (value > eis) eis = value;
+            if (modes != null) for (int value : modes) if (value == 1) basicEis = true;
+            int[] optical = c.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION);
+            if (optical != null) for (int value : optical) if (value == 1) opticalAvailable = true;
+            if (eis == 0 && optical != null) for (int value : optical) ois = Math.max(ois, value);
+            modeKey = Build.FINGERPRINT + ":" + id + ":720p30:" + tracks.size();
+            android.content.SharedPreferences learned = getSharedPreferences("camera-modes", MODE_PRIVATE);
+            int knownEis = learned.getInt(modeKey + ":eis", -1), knownOis = learned.getInt(modeKey + ":ois", -1);
+            boolean supportedKnown = false;
+            if (modes != null) for (int value : modes) if (value == knownEis && knownEis > 0) supportedKnown = true;
+            if (supportedKnown) { eis = knownEis; ois = 0; }
+            else if (knownEis == 0 && knownOis == 1 && opticalAvailable) { eis = 0; ois = 1; }
+            recorder = new MediaRecorder();
+            recorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
+            recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+            recorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+            recorder.setVideoSize(size.getWidth(), size.getHeight()); recorder.setVideoFrameRate(30);
+            recorder.setVideoEncodingBitRate(6_000_000);
+            int sensor = c.get(CameraCharacteristics.SENSOR_ORIENTATION);
+            int degrees = rotation * 90;
+            recorder.setOrientationHint("front".equals(label) ? (sensor + degrees) % 360 : (sensor - degrees + 360) % 360);
+            current = file(); recorder.setOutputFile(current.getPath());
+            recorder.setMaxFileSize(45_000_000L);
+            recorder.setOnInfoListener((r, what, extra) -> worker.post(() -> {
+                if (!running || stopping) return;
+                try {
+                    if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_FILESIZE_APPROACHING) {
+                        next = file(); recorder.setNextOutputFile(next);
+                    } else if (what == MediaRecorder.MEDIA_RECORDER_INFO_NEXT_OUTPUT_FILE_STARTED) {
+                        ClipStore.mark(current, ".ready"); event("file_finalized", current, null); current = next; next = null;
+                        event("file_started", current, null);
+                    } else if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_FILESIZE_REACHED) fail("Video rollover failed");
+                } catch (Exception error) { fail(error.getMessage()); }
+            }));
+            recorder.setOnErrorListener((r, what, extra) -> worker.post(() -> fail(label + " recorder error " + what)));
+            recorder.prepare();
+        }
+        void open() throws CameraAccessException {
+            if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
+                throw new SecurityException("Camera permission was revoked");
+            manager.openCamera(id, new CameraDevice.StateCallback() {
+                @Override public void onOpened(CameraDevice device) {
+                    if (!running || stopping) { device.close(); return; }
+                    camera = device;
+                    if (tracks.stream().allMatch(t -> t.camera != null)) for (Track t : tracks) t.configure();
+                }
+                @Override public void onDisconnected(CameraDevice d) { d.close(); fail(label + " camera disconnected"); }
+                @Override public void onError(CameraDevice d, int error) { d.close(); fail(label + " camera error " + error); }
+            }, worker);
+        }
+        void configure() {
+            try {
+                Surface target = recorder.getSurface();
+                camera.createCaptureSession(Collections.singletonList(target), new CameraCaptureSession.StateCallback() {
+                    @Override public void onConfigured(CameraCaptureSession s) {
+                        if (!running || stopping) { s.close(); return; }
+                        session = s;
+                        try {
+                            request = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
+                            request.addTarget(target);
+                            request.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, eis);
+                            request.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, ois);
+                            session.setRepeatingRequest(request.build(), captureCallback, worker);
+                            recorder.start(); recording = true; startedTracks++;
+                            if (startedTracks == tracks.size()) {
+                                state = "Recording";
+                                updateCameraStatus();
+                                getSystemService(NotificationManager.class).notify(1, notification("Recording " + tracks.size() + " camera(s)"));
+                            }
+                        } catch (Exception error) { fail(label + ": " + error.getMessage()); }
+                    }
+                    @Override public void onConfigureFailed(CameraCaptureSession s) { s.close(); fail(label + " recording configuration unavailable"); }
+                }, worker);
+            } catch (Exception error) { fail(error.getMessage()); }
+        }
+        private final CameraCaptureSession.CaptureCallback captureCallback = new CameraCaptureSession.CaptureCallback() {
+                                @Override public void onCaptureCompleted(CameraCaptureSession s, CaptureRequest r, TotalCaptureResult result) {
+                                    if (events == null || stopping) return;
+                                    frames++;
+                                    if (frames != 1 && frames != 30 && frames != 90 && frames != 180 && frames != 240) return;
+                                    appliedEis = result.get(CaptureResult.CONTROL_VIDEO_STABILIZATION_MODE);
+                                    appliedOis = result.get(CaptureResult.LENS_OPTICAL_STABILIZATION_MODE);
+                                    updateCameraStatus();
+                                    try {
+                                        event("frame_"+frames, current, result.get(CaptureResult.SENSOR_TIMESTAMP));
+                                        if (frames == 240 && appliedEis != null && appliedOis != null && (appliedEis > 0 || appliedOis > 0))
+                                            getSharedPreferences("camera-modes", MODE_PRIVATE).edit().putInt(modeKey+":eis",appliedEis).putInt(modeKey+":ois",appliedOis).apply();
+                                        if (frames == 90 && Objects.equals(appliedEis, 0) && eis == 2 && basicEis) {
+                                            eis = 1; request.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, eis);
+                                            session.setRepeatingRequest(request.build(), this, worker);
+                                        } else if (frames == 180 && Objects.equals(appliedEis, 0) && opticalAvailable) {
+                                            eis = 0; ois = 1;
+                                            request.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, eis);
+                                            request.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, ois);
+                                            session.setRepeatingRequest(request.build(), this, worker);
+                                        }
+                                    } catch (Exception error) { fail("Cannot verify camera stabilization: " + error.getMessage()); }
+                                }
+        };
+        void event(String kind, File file, Long sensor) throws IOException {
+            if (events == null) return;
+            events.write(System.currentTimeMillis()+","+SystemClock.elapsedRealtimeNanos()+","+(sensor==null?"":sensor)+","+label+","+kind+","+appliedEis+","+appliedOis+","+(file==null?"":file.getName())+"\n");
+            events.flush();
+        }
+        void close() {
+            if (session != null) { try { session.stopRepeating(); session.abortCaptures(); } catch (Exception ignored) {} session.close(); }
+            if (recorder != null) {
+                if (recording) try { recorder.stop(); ClipStore.mark(current, ".ready"); event("file_finalized", current, null); } catch (Exception ignored) { /* Retain unverified output, never label it complete. */ }
+                recorder.release();
+            }
+            if (camera != null) camera.close();
+        }
+    }
+    private void updateCameraStatus() {
+        cameraStatus = tracks.stream().map(t -> t.label + " 720p · " +
+            (t.appliedEis == null ? "checking stabilization" : t.appliedEis > 0 ? "electronic stabilization" :
+            t.appliedOis != null && t.appliedOis > 0 ? "optical stabilization" : "stabilization off"))
+            .collect(java.util.stream.Collectors.joining("\n"));
+    }
+}

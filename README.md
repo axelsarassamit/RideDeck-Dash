@@ -1,49 +1,35 @@
 # RideDeck Dash
 
-Initial Android source foundation, not a working dashcam. Dedicated repository: https://github.com/axelsarassamit/RideDeck-Dash. Canonical local checkout: C:\Applications\RideDeck-Dash.
+A separate Android dashcam for RideDeck and RideDeck for Yamaha. Package: com.axelsarassamit.ridedeck.dash.
 
-First target: Xiaomi 14T Pro. Recording continues for the active RideDeck ride session, including screen off and navigation use. Android/HyperOS version still needs device verification.
+## First recording version: 0.2.0
 
-## Agreed product behavior
+- Front and rear Camera2 recording, with an explicit single-camera choice when a phone cannot run both.
+- Separate 720p H.264 MP4 files at a requested 30 fps, without microphone audio.
+- Highest advertised electronic stabilization requested first. Camera results are checked after warm-up; if the strongest electronic mode is ignored, Dash tries basic electronic stabilization and then optical stabilization. Applied settings and segment events are saved in capture.csv. Advertisement alone is not proof of shake reduction.
+- Approximately one-minute segments using MediaRecorder file-size rollover. Duration depends on actual encoder bitrate. No recorder reset is needed for a normal rollover.
+- Protect clip keeps the current, previous minute and next minute of footage from loop recycling. A 2 GB loop budget recycles only finalized unprotected files. Interrupted files are retained as unverified. Recording stops if protected footage or disk space prevents another allocation.
+- Saved clips can be played, shared and, on Android 10 or newer, copied to the gallery. Ride CSV files can be exported to Downloads. Clip protection can be changed; permanent deletion requires an explicit confirmation. Internal footage survives app updates, but clearing app data or uninstalling deletes it.
+- Timestamped GPS speed, accuracy and coordinates are saved separately in route.csv. The dashboard labels stale/missing speed unavailable. Speed is not burned into the video in this version.
+- Online OpenStreetMap map, recorded ride trace and tapped-destination motorcycle route planning through public Valhalla. Coordinates are sent for routing only after confirmation. This is route planning, not turn-by-turn spoken navigation; public services have no guaranteed availability. Leaflet 1.9.4 is bundled with its license.
+- Portrait and landscape dashboard. The foreground service retains camera ownership through dashboard rotation.
 
-- Separate companion for RideDeck and RideDeck for Yamaha.
-- Standalone recording while Dash is visible; background recording only with an active, authenticated RideDeck or RideDeck for Yamaha ride session.
-- Portrait and landscape supported. Rotation must not interrupt future capture.
-- Operations require a connected charger OR at least 50% battery. Unknown battery state blocks operation unless plugged in. Stop capture and finalize its current segment only when unplugged and below 50%, or when backgrounded without an authorized host session. No automatic restart.
-- Record rear and front cameras simultaneously where device sessions support it. Explicitly show any single-camera fallback.
-- Prefer the strongest stable, supported stabilization for each tested camera/resolution/frame-rate combination. Do not blindly combine optical and electronic modes.
-- Dashcam loop recording with bounded storage, protected clips, timestamps and recovery after interruption. Protected clips must never be automatically overwritten.
-- Record GPS speed, position and actual traveled route. Display route guidance in RideDeck and synchronize the planned route to footage review in Dash.
-- Yamaha speed integration only through a verified, supported telemetry source. Keep GPS and bike speed separately labeled, preserve timestamps and mark stale readings unavailable.
-- Large recording-status and protect-clip controls in both host apps. Persistent Android recording notification with Stop.
+## Power and background rules
 
-## Foundation implemented
+Recording requires a connected charger OR battery at least 50%. Unknown battery state blocks recording unless plugged in. The rule is checked before start and continuously. No automatic restart occurs when power recovers.
 
-An Android capability inspection screen reports camera directions, advertised stabilization modes and concurrent camera groups. It does not request camera access or record. RideSessionPolicy models an exclusive companion lease with a 15-second expiry. This policy must sit behind real Android caller authentication; it is not a security boundary by itself.
+Standalone recording is permitted while a Dash screen is visible. Background recording requires a live authenticated ride heartbeat from one of the two production RideDeck apps. The 15-second lease expires if renewals stop. Camera capture starts only through the visible Dash action and Android permission flow. No boot or silent background recording.
 
-The signed release app includes a user-initiated update checker with SHA-256, package, version and signer verification. Debug builds have a separate package ID and do not offer release updates. Android builds/tests run on pushes and pull requests. Numeric version tags trigger signed development releases with checksums and source provenance. See docs/UPDATES.md for the permanent signing and stable release policy.
+The provider authenticates Binder UID, exact host package and its verified production signer. It never opens cameras. See docs/COMPANION_PROTOCOL.md. Both host chats are coordinating their integration independently; an installed host without that integration cannot authorize background recording.
 
-## Integration design to implement
+## Honest limits
 
-1. The rider starts recording from visible Dash or through a RideDeck launch into Dash. Obtain camera/location permissions and check the power gate there before starting the camera/location foreground service. Standalone recording ends when Dash is backgrounded without an authenticated companion session. No silent background camera startup or boot recording.
-2. Authenticate Binder callers using calling UID, installed package identity and approved signing certificates. Allow only the two package IDs in RideSessionPolicy. Verify actual production signing identities before enabling the integration. Reject caller-supplied package names and arbitrary intents.
-3. Host ride service sends a heartbeat every 5 seconds using monotonic time. Dash stops and finalizes footage on ride end, Binder death or lease expiry, and checks expiry independently of incoming messages. Activity pause and screen off do not end the ride.
-4. Probe and test dual encoder sessions on the Xiaomi. Validate stabilization, orientation, dropped frames, encoder limits, screen-off behavior, storage pressure and heat in sustained operation.
-5. Add rolling segments and an indexed metadata timeline, clip protection, storage quotas, export and interrupted-file handling. Compare independent camera files against composited footage on-device before choosing the recording pipeline.
-6. Add timestamped GPS telemetry and route synchronization. Current local Yamaha code launches Y-Connect; a usable speed-data interface has not been established. Do not fabricate a connection or display demo bike speed as live.
-7. Integrate controls into both existing apps and verify both builds when changes are pushed. Signed release and physical recording tests are required before any supported-device claim.
+Yamaha Y-Connect speed is not connected. Existing Yamaha integration launches the official app; no usable live speed API has been established. No simulated bike speed is shown.
 
-## References
+No live camera preview or video speed overlay is included yet. Review a short saved clip to check positioning before a ride. Long-duration heat, road shake reduction, vehicle telemetry and screen-off capture need separate physical verification. See VALIDATION.md for completed checks and limits.
 
-- https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start
-- https://developer.android.com/develop/background-work/services/fgs/service-types
-- https://developer.android.com/reference/android/hardware/camera2/CameraManager#getConcurrentCameraIds()
-- https://developer.android.com/reference/androidx/camera/video/VideoCapabilities
+## Updates and build
 
-## Validation status
+The stable application ID and permanent signing key are preserved. Numeric version tags produce signed development prereleases with APK, checksums and source provenance. Stable in-app updates verify package, version, signer and SHA-256. Prereleases are intentionally excluded from the stable updater until promoted. See docs/UPDATES.md.
 
-No phone test yet. Android build validation is recorded separately in VALIDATION.md. No integrations or existing RideDeck app files were changed.
-
-## Build
-
-Use JDK 17 and Android SDK 36. Run `./gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug` (Windows: `gradlew.bat`). Release signing uses DASH_KEYSTORE_PATH and DASH_KEYSTORE_PASSWORD. Set DASH_VERSION_NAME to a numeric version when building an update. Never commit signing files.
+Use JDK 17 and Android SDK 36. Run gradlew.bat :app:testDebugUnitTest :app:assembleDebug :app:lintDebug on Windows. Release signing uses DASH_KEYSTORE_PATH and DASH_KEYSTORE_PASSWORD. Never commit signing files. Debug builds use the .debug package suffix.

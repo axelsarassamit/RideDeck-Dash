@@ -50,7 +50,7 @@ public final class CapabilityActivity extends Activity {
         TextView text = new TextView(this);
         text.setTextSize(20);
         text.setPadding(28, 32, 28, 32);
-        StringBuilder report = new StringBuilder("RideDeck Dash\nDevelopment foundation\n\n");
+        StringBuilder report = new StringBuilder("RideDeck Dash\nCamera diagnostics\n\n");
         report.append(Build.MANUFACTURER).append(" ").append(Build.MODEL)
             .append("\nAndroid ").append(Build.VERSION.RELEASE).append("\n\n");
         try {
@@ -69,7 +69,7 @@ public final class CapabilityActivity extends Activity {
         } catch (Exception error) {
             report.append("Camera capability check unavailable: ").append(error.getClass().getSimpleName());
         }
-        report.append("\n\nRecording is not implemented in this foundation.\nThe next step is a recording-session test on the Xiaomi 14T Pro. Advertised camera modes do not establish stable dual recording.");
+        report.append("\n\nThese are advertised camera modes. Actual recording support depends on the selected capture configuration. Return to the dashboard to record.");
         text.setText(report);
         ScrollView scroll = new ScrollView(this);
         scroll.setOnApplyWindowInsetsListener((view, insets) -> {
