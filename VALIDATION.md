@@ -1,4 +1,16 @@
-# RideDeck Dash 0.2.0 validation
+# RideDeck Dash validation
+
+## 0.3.0 changes and bench checks, 2026-10-11
+
+- Real rear/front alignment views rendered before capture and during capture on the Xiaomi. Portrait/landscape rotation retained recording and changed the displayed orientation.
+- Four presets and individual clip size, recording quota, free-space reserve, protection window, resolution, bitrate, stabilization and preview refresh settings are implemented. Changes apply to the next session.
+- Xiaomi exposed two built-in microphone inputs. Each was selected and the active routed input reported its corresponding device ID. No headset mixing is claimed.
+- A selected built-in microphone produced a 720p rear MP4 with H.264 and AAC. All 999 video frames decoded.
+- Clear detail preset with custom 64 MB clips recorded simultaneous cameras. Exported rear file was 1920 x 1080 H.264 with AAC; all 1,082 video frames and 1,716 audio frames decoded. Microphone audibility and riding wind suppression were not assessed.
+- Finalization retains the busy state until cameras/encoders finish. Audio routing is checked periodically; disconnected selections do not silently substitute another input.
+- Bluetooth/USB microphone selection is implemented, but no connected headset route or multi-source mixing has been physically validated. 60 fps, gyro post-processing, voice control and automatic incident detection are not implemented.
+
+The following evidence records the previous 0.2.0 bench checks and remains relevant to unchanged gating, map and storage marker behavior.
 
 ## Build checks
 
@@ -35,6 +47,6 @@ Yamaha integration head: 58478d978e8856d4e16e7e685d8dc1c915761dcd. Android run 3
 
 ## Limits
 
-This is a development dashcam release. No motorbike ride, sustained heat/storage-pressure test, perceptual shake-reduction comparison, crash recovery of damaged MP4s or real Y-Connect speed feed has been validated. There is no live camera preview, burned-in speed overlay or spoken turn-by-turn navigation yet. Public map/routing service availability is not guaranteed. Interrupted MP4s are retained but may be unplayable. Android devices other than the tested Xiaomi are not physically validated.
+This is a development dashcam release. No motorbike ride, sustained heat/storage-pressure test, perceptual shake-reduction comparison, crash recovery of damaged MP4s or real Y-Connect speed feed has been validated. There is no burned-in speed overlay or spoken turn-by-turn navigation yet. Public map/routing service availability is not guaranteed. Interrupted MP4s are retained but may be unplayable. Android devices other than the tested Xiaomi are not physically validated.
 
 The stable updater intentionally excludes development prereleases. The permanent app ID, increasing numeric version code and preserved signing key support in-place updates. GitHub build and signed-release run IDs for the final commit are verified after publication.

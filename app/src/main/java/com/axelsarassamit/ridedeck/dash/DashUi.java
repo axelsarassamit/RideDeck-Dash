@@ -25,6 +25,12 @@ final class DashUi {
         TextView t = new TextView(a); t.setText(value); t.setTextColor(WHITE); t.setTextSize(size); t.setPadding(8,10,8,10); page.addView(t); return t;
     }
     static Button button(Activity a, LinearLayout p, String label, View.OnClickListener action) {
-        Button b = new Button(a); b.setText(label); b.setTextSize(19); b.setMinHeight(64); b.setOnClickListener(action); p.addView(b); return b;
+        Button b = new Button(a); b.setText(label); b.setAllCaps(false); b.setTextSize(16);
+        float density=a.getResources().getDisplayMetrics().density;
+        b.setMinHeight((int)(56*density));b.setPadding((int)(10*density),8,(int)(10*density),8);
+        android.graphics.drawable.GradientDrawable background=new android.graphics.drawable.GradientDrawable();
+        background.setColor(Color.rgb(31,44,56));background.setCornerRadius(12*density);background.setStroke((int)density,Color.rgb(55,72,86));b.setBackground(background);
+        b.setTextColor(new android.content.res.ColorStateList(new int[][]{new int[]{-android.R.attr.state_enabled},new int[]{}},new int[]{Color.rgb(100,117,130),WHITE}));
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(4,(int)(4*density),4,(int)(6*density));p.addView(b,lp);b.setOnClickListener(action);return b;
     }
 }

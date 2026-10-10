@@ -12,7 +12,9 @@ public final class ClipStore {
     public static final long QUOTA = 2L * 1024 * 1024 * 1024;
     public static final long RESERVE = 256L * 1024 * 1024;
     private final File root;
-    public ClipStore(Context context) { root = new File(context.getFilesDir(), "recordings"); root.mkdirs(); }
+    private final DashSettings settings;
+    public ClipStore(Context context) { this(context,new DashSettings(context)); }
+    ClipStore(Context context,DashSettings options) { settings = options; root = new File(context.getFilesDir(), "recordings"); root.mkdirs(); }
     public File root() { return root; }
     public static boolean protectedClip(File f) { return new File(f.getPath() + ".protected").exists(); }
     public static boolean finalized(File f) { return new File(f.getPath() + ".ready").exists(); }
@@ -34,15 +36,15 @@ public final class ClipStore {
     public synchronized void reserve(long expectedBytes) throws IOException {
         List<File> files = clips();
         long used = 0;
-        for (File f : files) used += f.length();
+        for (File f : files) used += finalized(f) ? f.length() : Math.max(f.length(),settings.clipBytes());
         files.sort(Comparator.comparingLong(File::lastModified));
         for (File f : files) {
-            if (used + expectedBytes <= QUOTA && root.getUsableSpace() >= RESERVE + expectedBytes) return;
+            if (used + expectedBytes <= settings.quotaBytes() && root.getUsableSpace() >= settings.number("reserve",512)*1024L*1024 + expectedBytes) return;
             if (!canRecycle(f)) continue;
             long length = f.length();
             if (f.delete()) { used -= length; new File(f.getPath() + ".ready").delete(); }
         }
-        if (used + expectedBytes > QUOTA || root.getUsableSpace() < RESERVE + expectedBytes)
+        if (used + expectedBytes > settings.quotaBytes() || root.getUsableSpace() < settings.number("reserve",512)*1024L*1024 + expectedBytes)
             throw new IOException("Storage full. Export protected clips to free space.");
     }
 }

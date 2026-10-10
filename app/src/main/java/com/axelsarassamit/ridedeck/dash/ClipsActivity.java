@@ -18,6 +18,7 @@ import java.util.*;
 public final class ClipsActivity extends Activity {
     @Override public void onCreate(Bundle b) { super.onCreate(b); showList(); }
     private void showList() {
+        if(RecordingService.finalizing){LinearLayout waiting=DashUi.page(this);setContentView(waiting);DashUi.text(this,waiting,"Saving clips, please wait",22);waiting.postDelayed(()->{if(!isFinishing()&&!isDestroyed())showList();},500);return;}
         LinearLayout page=DashUi.page(this); ScrollView scroll=new ScrollView(this); scroll.addView(page); setContentView(scroll);
         DashUi.text(this,page,"Saved clips",28);
         DashUi.text(this,page,"Protected clips stay in loop storage. Share a copy before clearing app data. Interrupted files are kept but may not play.",16);

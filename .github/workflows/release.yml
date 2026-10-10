@@ -49,7 +49,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --prerelease --title "RideDeck Dash $GITHUB_REF_NAME" --notes "First development dashcam: front/rear loop recording, protected clips, playback and gallery export, GPS ride trace, online map and motorcycle route planning, authenticated RideDeck background lease, and continuous charger-or-50-percent gate. Host integration must also be installed for background use. Yamaha live speed, road stabilization and sustained heat reliability remain unverified. See VALIDATION.md for physical checks. Development releases are excluded from stable in-app updates."
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --prerelease --title "RideDeck Dash $GITHUB_REF_NAME" --notes "Development dashcam with live rear/front views, configurable clip sizes and storage, recording presets, optional routed microphone audio, protected clips, playback and gallery export, GPS ride trace, online map and motorcycle route planning, authenticated RideDeck background lease, and continuous charger-or-50-percent gate. Host integration must also be installed for background use. Yamaha live speed, road stabilization and sustained heat reliability remain unverified. See VALIDATION.md for physical checks. Development releases are excluded from stable in-app updates."
       - name: Remove temporary signing material
         if: always()
         run: rm -f "$RUNNER_TEMP/dash-release.p12"
