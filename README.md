@@ -2,11 +2,11 @@
 
 A separate Android dashcam for RideDeck and RideDeck for Yamaha. Package: com.axelsarassamit.ridedeck.dash.
 
-## Live-view and configurable recording: 0.3.0
+## Live-view and configurable recording: 0.3.1
 
 - Front and rear Camera2 recording, with an explicit single-camera choice when a phone cannot run both.
 - Separate 720p or 1080p H.264 MP4 files at a requested 30 fps, with adjustable 4 to 24 Mbps video bitrate. Unsupported configurations fail explicitly.
-- Live rear/front alignment views before and during recording. Tap a view to enlarge it. Preview is 640 x 360 at a selectable 2, 5 or 10 fps; saved video retains the selected recording resolution. Views fit without cropping.
+- Live rear/front alignment views before and during recording. After Camera permission has been granted, the view opens automatically while Dash is visible and power is allowed; it can be closed explicitly. Tap a view to enlarge it. Preview is 640 x 360 at a selectable 2, 5 or 10 fps; saved video retains the selected recording resolution. Views fit without cropping.
 - Balanced, Clear detail, Long ride and High quality presets, plus custom settings.
 - Optional AAC microphone audio in rear video, or front video for front-only capture. Choose an actual Android phone, wired, USB or headset input; selected routing is checked. Phone plus headset mixing is not implemented.
 - Highest advertised electronic stabilization requested first. Camera results are checked after warm-up; if the strongest electronic mode is ignored, Dash tries basic electronic stabilization and then optical stabilization. Applied settings and segment events are saved in capture.csv. Advertisement alone is not proof of shake reduction.

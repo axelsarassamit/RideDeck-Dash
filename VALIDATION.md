@@ -1,6 +1,6 @@
 # RideDeck Dash validation
 
-## 0.3.0 changes and bench checks, 2026-10-11
+## 0.3.0 and 0.3.1 changes and bench checks, 2026-10-11
 
 - Real rear/front alignment views rendered before capture and during capture on the Xiaomi. Portrait/landscape rotation retained recording and changed the displayed orientation.
 - Four presets and individual clip size, recording quota, free-space reserve, protection window, resolution, bitrate, stabilization and preview refresh settings are implemented. Changes apply to the next session.
@@ -9,6 +9,10 @@
 - Clear detail preset with custom 64 MB clips recorded simultaneous cameras. Exported rear file was 1920 x 1080 H.264 with AAC; all 1,082 video frames and 1,716 audio frames decoded. Microphone audibility and riding wind suppression were not assessed.
 - Finalization retains the busy state until cameras/encoders finish. Audio routing is checked periodically; disconnected selections do not silently substitute another input.
 - Bluetooth/USB microphone selection is implemented, but no connected headset route or multi-source mixing has been physically validated. 60 fps, gyro post-processing, voice control and automatic incident detection are not implemented.
+
+- Published 0.3.0 CI APK installed preserving existing clips. A roughly 90-second dual 1080p session with the second built-in microphone crossed two file rollovers per camera. Three segments per camera finalized, with expected protected markers and native playback. Both host session and original saved clips survived updates.
+- Standard RideDeck 0.12.11 signed artifact was installed after explicit CLI download authorization. Dash controls disappeared while Dash was temporarily disabled; ordinary Resume/Pause worked. Restoring Dash's original default enabled state and resuming the host returned Dash controls and authenticated its provider lease. Yamaha 0.12.27 independently passed the same visibility/restoration and ordinary ride tests in its chat. Neither app was uninstalled and no app data was cleared.
+- 0.3.1 candidate automatically opened both live alignment views after existing Camera permission, while visible and powered. Starting dual 1080p recording released the idle preview first and succeeded with the correct microphone. Idle dashboard displayed selected resolution/input instead of stale capture status.
 
 The following evidence records the previous 0.2.0 bench checks and remains relevant to unchanged gating, map and storage marker behavior.
 
