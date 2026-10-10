@@ -10,9 +10,39 @@ import android.widget.ScrollView;
 import java.util.Arrays;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.BatteryManager;
 
 /** Setup-only capability inspector. Does not open cameras or begin recording. */
 public final class CapabilityActivity extends Activity {
+    private TextView powerStatus;
+    private Button update;
+    private boolean powerAllowed;
+    private final BroadcastReceiver batteryReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent battery) { applyBattery(battery); }
+    };
+    private void applyBattery(Intent battery) {
+        boolean plugged = battery != null && battery.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0;
+        int percent = battery == null ? -1 : RecordingGate.batteryPercent(
+            battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1), battery.getIntExtra(BatteryManager.EXTRA_SCALE, -1));
+        RecordingGate.Result result = RecordingGate.evaluate(plugged, percent, true, false);
+        powerAllowed = result == RecordingGate.Result.ALLOWED;
+        if (powerStatus != null) powerStatus.setText(powerAllowed
+            ? "Power ready: " + (plugged ? "charger connected" : "battery " + percent + "%")
+            : "Dash paused: " + (result == RecordingGate.Result.BATTERY_TOO_LOW ? "connect a charger or charge to 50%" : "battery unknown; connect a charger"));
+        if (update != null) update.setEnabled(powerAllowed && !BuildConfig.DEBUG);
+    }
+    @Override protected void onStart() {
+        super.onStart();
+        applyBattery(registerReceiver(batteryReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED)));
+    }
+    @Override protected void onStop() {
+        unregisterReceiver(batteryReceiver);
+        super.onStop();
+    }
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         TextView text = new TextView(this);
@@ -43,11 +73,15 @@ public final class CapabilityActivity extends Activity {
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
         page.addView(text);
-        Button update = new Button(this);
+        powerStatus = new TextView(this);
+        powerStatus.setTextSize(20);
+        powerStatus.setPadding(28, 16, 28, 16);
+        page.addView(powerStatus, 0);
+        update = new Button(this);
         update.setText("Check for updates");
-        update.setEnabled(!BuildConfig.DEBUG);
+        update.setEnabled(false);
         if (BuildConfig.DEBUG) update.setText("Updates available in the signed release app");
-        update.setOnClickListener(v -> new ReleaseUpdater(this).check(update));
+        update.setOnClickListener(v -> { if (powerAllowed) new ReleaseUpdater(this).check(update); });
         page.addView(update);
         scroll.addView(page);
         setContentView(scroll);

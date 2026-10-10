@@ -7,7 +7,9 @@ First target: Xiaomi 14T Pro. Recording continues for the active RideDeck ride s
 ## Agreed product behavior
 
 - Separate companion for RideDeck and RideDeck for Yamaha.
-- No standalone recording. Setup and footage review can be opened separately.
+- Standalone recording while Dash is visible; background recording only with an active, authenticated RideDeck or RideDeck for Yamaha ride session.
+- Portrait and landscape supported. Rotation must not interrupt future capture.
+- Operations require a connected charger OR at least 50% battery. Unknown battery state blocks operation unless plugged in. Stop capture and finalize its current segment only when unplugged and below 50%, or when backgrounded without an authorized host session. No automatic restart.
 - Record rear and front cameras simultaneously where device sessions support it. Explicitly show any single-camera fallback.
 - Prefer the strongest stable, supported stabilization for each tested camera/resolution/frame-rate combination. Do not blindly combine optical and electronic modes.
 - Dashcam loop recording with bounded storage, protected clips, timestamps and recovery after interruption. Protected clips must never be automatically overwritten.
@@ -23,7 +25,7 @@ The signed release app includes a user-initiated update checker with SHA-256, pa
 
 ## Integration design to implement
 
-1. RideDeck explicitly opens a visible Dash start activity when the rider starts recording. Obtain camera/location permissions there, start the camera/location foreground service, then return to the host. No silent background camera startup or boot recording.
+1. The rider starts recording from visible Dash or through a RideDeck launch into Dash. Obtain camera/location permissions and check the power gate there before starting the camera/location foreground service. Standalone recording ends when Dash is backgrounded without an authenticated companion session. No silent background camera startup or boot recording.
 2. Authenticate Binder callers using calling UID, installed package identity and approved signing certificates. Allow only the two package IDs in RideSessionPolicy. Verify actual production signing identities before enabling the integration. Reject caller-supplied package names and arbitrary intents.
 3. Host ride service sends a heartbeat every 5 seconds using monotonic time. Dash stops and finalizes footage on ride end, Binder death or lease expiry, and checks expiry independently of incoming messages. Activity pause and screen off do not end the ride.
 4. Probe and test dual encoder sessions on the Xiaomi. Validate stabilization, orientation, dropped frames, encoder limits, screen-off behavior, storage pressure and heat in sustained operation.
