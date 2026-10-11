@@ -42,17 +42,18 @@ public final class CompanionRecordingService extends Service {
                 || (!"off".equals(settings.text("audio", "off"))
                 && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED))
                 throw new IllegalStateException("Open Dash once to grant camera and microphone permissions");
-            RecordingService.companionStartUntil = SystemClock.elapsedRealtime() + 2000;
-            try {
-                startForegroundService(new Intent(this, RecordingService.class).setAction("START")
-                    .putExtra("mode", settings.text("mode", "dual"))
-                    .putExtra("rotation", getSystemService(android.view.WindowManager.class).getDefaultDisplay().getRotation()));
-            } catch (RuntimeException error) {
-                RecordingService.companionStartUntil = 0;
-                throw error;
-            }
+            String token = java.util.UUID.randomUUID().toString();
+            RecordingService.companionStartToken = token;
+            RecordingService.companionStartOwner = caller;
+            RecordingService.companionStartUntil = SystemClock.elapsedRealtime() + 15000;
+            Intent start = new Intent(this, RecordingService.class).setAction("START")
+                .setData(android.net.Uri.parse("ridedeck-dash://start/" + token))
+                .putExtra("startToken", token).putExtra("mode", settings.text("mode", "dual"))
+                .putExtra("rotation", getSystemService(android.view.WindowManager.class).getDefaultDisplay().getRotation());
+            result.putParcelable("startIntent", android.app.PendingIntent.getForegroundService(this, 0, start,
+                android.app.PendingIntent.FLAG_ONE_SHOT | android.app.PendingIntent.FLAG_IMMUTABLE));
             result.putBoolean("accepted", true);
-            result.putString("message", "Recording requested. Check the camera angle in the preview.");
+            result.putString("message", "Ready to start. Check the camera angle in the preview.");
         } catch (RuntimeException error) {
             result.putBoolean("accepted", false);
             result.putString("message", error.getMessage());

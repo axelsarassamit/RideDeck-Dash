@@ -19,6 +19,7 @@ public final class RecordingService extends Service {
     public static volatile boolean running, finalizing;
     static volatile boolean capturing;
     static long companionStartUntil;
+    static String companionStartToken, companionStartOwner;
     public static volatile String state = "Ready to record";
     public static volatile String cameraStatus = "Rear + front, 720p / 30 fps";
     public static volatile Location position;
@@ -70,8 +71,11 @@ public final class RecordingService extends Service {
         if ("STOP".equals(action)) { DashboardActivity.motionConsumed=true;DashboardActivity.consumedSession=DashBridgeProvider.SESSIONS.generation(); worker.post(() -> finish("Recording stopped")); return START_NOT_STICKY; }
         if ("PROTECT".equals(action)) { worker.post(this::protect); return START_NOT_STICKY; }
         boolean companionStart = companionStartUntil > SystemClock.elapsedRealtime()
-            && DashBridgeProvider.SESSIONS.isActive(SystemClock.elapsedRealtime());
+            && companionStartToken != null && intent != null
+            && companionStartToken.equals(intent.getStringExtra("startToken"))
+            && DashBridgeProvider.SESSIONS.isOwnedBy(companionStartOwner, SystemClock.elapsedRealtime());
         companionStartUntil = 0;
+        companionStartToken = null; companionStartOwner = null;
         if (running) return START_NOT_STICKY;
         if (!DashApplication.isVisible() && !companionStart) { stopSelf(); return START_NOT_STICKY; }
         rotation = intent == null ? 0 : intent.getIntExtra("rotation", 0);
@@ -86,7 +90,8 @@ public final class RecordingService extends Service {
             if (Build.VERSION.SDK_INT >= 29 && types != 0) startForeground(1, notification("Starting cameras"), types);
             else startForeground(1, notification("Starting cameras"));
         } catch (RuntimeException error) {
-            state = "Recording unavailable: " + error.getMessage(); stopSelf(); return START_NOT_STICKY;
+            state = "Recording unavailable: " + error.getMessage(); stopping = true;
+            android.util.Log.w("RideDeckDash", state, error); stopSelf(); return START_NOT_STICKY;
         }
         running = true; stopping = false; state = "Starting cameras";
         capturing = false;

@@ -21,8 +21,16 @@ The provider does not open cameras. A visible host can bind the explicit
 `BIND_AUTO_CREATE | BIND_INCLUDE_CAPABILITIES` (capabilities flag on API 30+).
 Keep this binding for the active ride. Messenger requests require
 `protocolVersion=1`, a `replyTo`, verified sending UID/signature, and a lease
-owned by that caller. `what=1` requests recording without opening Dash;
-reply `accepted` means the request was submitted, not that capture has begun.
+owned by that caller. `what=1` prepares recording without opening Dash;
+reply `accepted` means a start ticket was issued, not that capture has begun.
+The reply includes immutable one-shot `PendingIntent startIntent`. Verify
+its creator is the genuine signed Dash UID/package and send it only while
+the initiating host is visible and the explicit Start/Resume gesture remains
+current. The ticket expires after 15 seconds and requires the same active
+lease owner. Do not replay it after UI leave, permission prompts or timeout.
+This visible-host PendingIntent is the Android while-in-use exemption;
+binding alone did not permit a separate internal camera service on the
+tested Xiaomi Android 16. No automatic Dash activity launch is involved.
 Missing camera/audio permission requires explicit one-time Dash setup.
 Never automatically launch Dash from a recording request.
 
