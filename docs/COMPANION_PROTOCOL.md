@@ -29,6 +29,13 @@ the initiating host is visible and the explicit Start/Resume gesture remains
 current. The ticket expires after 15 seconds and requires the same active
 lease owner. Do not replay it after UI leave, permission prompts or timeout.
 This visible-host PendingIntent is the Android while-in-use exemption;
+on API 34+ the sender must explicitly opt in with
+`ActivityOptions.setPendingIntentBackgroundActivityStartMode`: API 36 uses
+`MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE`, API 34-35 uses
+`MODE_BACKGROUND_ACTIVITY_START_ALLOWED`, immediately after verifying the
+visible user gesture. Pass its bundle to the seven-argument PendingIntent
+send overload, with a null fill-in Intent. Android 16 otherwise gives only
+FGS privileges, which do not grant camera/microphone while-in-use access.
 binding alone did not permit a separate internal camera service on the
 tested Xiaomi Android 16. No automatic Dash activity launch is involved.
 Missing camera/audio permission requires explicit one-time Dash setup.

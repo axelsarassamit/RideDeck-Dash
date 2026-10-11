@@ -90,8 +90,8 @@ public final class RecordingService extends Service {
             if (Build.VERSION.SDK_INT >= 29 && types != 0) startForeground(1, notification("Starting cameras"), types);
             else startForeground(1, notification("Starting cameras"));
         } catch (RuntimeException error) {
-            state = "Recording unavailable: " + error.getMessage(); stopping = true;
-            android.util.Log.w("RideDeckDash", state, error); stopSelf(); return START_NOT_STICKY;
+            state = "Android blocked recording. Keep RideDeck visible and try Start again."; stopping = true;
+            android.util.Log.w("RideDeckDash", "Foreground recording start denied", error); stopSelf(); return START_NOT_STICKY;
         }
         running = true; stopping = false; state = "Starting cameras";
         capturing = false;
