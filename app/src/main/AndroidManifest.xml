@@ -24,6 +24,8 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/update_paths" />
         </provider>
         <activity android:name=".CapabilityActivity" android:exported="false" />
+        <activity android:name=".OverlaySettingsActivity" android:exported="false" />
+        <activity android:name=".OverlayExportActivity" android:exported="false" />
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".ClipsActivity" android:exported="false" />
         <activity android:name=".MapActivity" android:exported="false" />

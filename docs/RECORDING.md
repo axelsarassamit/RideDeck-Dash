@@ -19,7 +19,7 @@ Protect marks current, already-queued next files, recent finalized footage and n
 
 ## Timestamp formats
 
-route.csv columns: utc_ms, elapsed_ns, latitude, longitude, accuracy_m, speed_m_s. Each row comes from a real Android GPS fix. Missing speed is empty, never synthesized. Dashboard readings older than six seconds are unavailable. Coordinates remain inside the app until an explicit export or route request.
+route.csv columns: utc_ms, elapsed_ns, latitude, longitude, accuracy_m, speed_m_s, altitude_m, bearing_deg, battery_percent, charging. Each row comes from a real Android GPS fix. Missing speed is empty, never synthesized. Dashboard readings older than six seconds are unavailable. Coordinates remain inside the app until an explicit export or route request.
 
 capture.csv columns: utc_ms, elapsed_ns, sensor_ns, camera, event, eis, ois, file. UTC and elapsed clocks refer to callback/event reception. sensor_ns is the hardware camera timestamp where available, kept separately because its time source is device-dependent. Sampled frame results record applied stabilization; file_started/file_finalized events index rollovers. Camera files start and finish independently; this is not frame-perfect synchronized stereo capture.
 
@@ -29,7 +29,7 @@ Saved clips offer gallery video copy, Downloads CSV copy, sharing and historical
 
 Leaflet 1.9.4 is bundled locally with its BSD license. Only the local map page and OpenStreetMap tile requests are loaded by the map WebView; it cannot navigate to arbitrary remote script pages or read local files. Attribution stays visible.
 
-Blue shows real GPS samples. A destination tap can request a motorcycle route from current GPS using public Valhalla after confirmation. Orange shows that plan. Historical views do not silently reuse old coordinates as a live start position. Online provider outages are reported. This release does not provide spoken navigation, rerouting or a burned-in video speed overlay.
+Blue shows real GPS samples. A destination tap can request a motorcycle route from current GPS using public Valhalla after confirmation. Orange shows that plan. Historical views do not silently reuse old coordinates as a live start position. Online provider outages are reported. This release does not provide spoken navigation, rerouting ; optional overlay export is available for saved clips.
 
 ## Presets, live view and audio
 
@@ -40,3 +40,7 @@ The alignment view opens cameras only while Dash is visible and power is permitt
 Audio is captured by one recorder to avoid competing microphone recordings: rear when present, front in front-only mode. AAC is embedded in that video's MP4. Input choices come from actual Android input devices; internal virtual/telephony inputs are filtered out. A selected input must still exist and accept preferred routing. Actual input is checked after start and repeatedly while recording. A route mismatch stops recording instead of silently substituting a microphone. Automatic input permits Android's selected source. Physical microphone capsules may be grouped by Android; the app cannot promise separate access where the OS does not expose it. No simultaneous phone/headset mixer is implemented. Bluetooth and USB routes require connected hardware and separate physical validation.
 
 Finalization keeps Start disabled until existing recorders and service shutdown have completed. Saved clips preserve unverified output if recorder finalization fails.
+
+## Drive automation and overlay copies
+
+See README for the configurable start/stop thresholds and original-preserving overlay export. A clip now records its initial file_started event as well as rollover starts, allowing each segment to align GPS by elapsed clock rather than filename or last-modified time. Altitude, heading and battery fields are optional; older route CSVs remain readable. Route distance is an estimate from accurate continuous fixes with gap, jitter and implausible-speed filtering, not an odometer.

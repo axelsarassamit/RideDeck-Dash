@@ -14,6 +14,7 @@ public class RideSessionPolicyTest {
         assertFalse(policy.isActive(103));
         assertTrue(policy.renew(RideSessionPolicy.YAMAHA, 104));
     }
+    @Test public void generationChangesOnlyForNewRide(){RideSessionPolicy p=new RideSessionPolicy();p.renew(RideSessionPolicy.STANDARD,0);long first=p.generation();p.renew(RideSessionPolicy.STANDARD,5000);assertEquals(first,p.generation());p.stop(RideSessionPolicy.STANDARD);p.renew(RideSessionPolicy.STANDARD,6000);assertEquals(first+1,p.generation());}
     @Test public void expiryClockAndTakeover() {
         RideSessionPolicy policy = new RideSessionPolicy();
         assertFalse(policy.isActive(0));

@@ -27,16 +27,17 @@ public final class ClipsActivity extends Activity {
         for(File file:files) {
             String label=(ClipStore.protectedClip(file)?"Protected · ":"")+file.getName()+"\n"+new SimpleDateFormat("dd MMM HH:mm:ss",Locale.getDefault()).format(new Date(file.lastModified()))
                 +" · "+(file.length()/1024/1024)+" MB"+(ClipStore.finalized(file)?"":" · recording / unverified");
-            DashUi.button(this,page,label,v -> new AlertDialog.Builder(this).setTitle(file.getName()).setItems(new String[]{"Play","Share video","Save to gallery","Save ride data","Show ride map",ClipStore.protectedClip(file)?"Allow loop recycling":"Keep clip","Delete clip"},(dialog,item) -> {
+            DashUi.button(this,page,label,v -> new AlertDialog.Builder(this).setTitle(file.getName()).setItems(new String[]{"Play","Share video","Save to gallery","Export with overlays","Save ride data","Show ride map",ClipStore.protectedClip(file)?"Allow loop recycling":"Keep clip","Delete clip"},(dialog,item) -> {
                 if(item==0) play(file);
                 else if(item==1) {
                     if(!ClipStore.finalized(file)) { Toast.makeText(this,"Stop recording before sharing this clip",Toast.LENGTH_LONG).show(); return; }
                     Intent share=new Intent(Intent.ACTION_SEND).setType("video/mp4").putExtra(Intent.EXTRA_STREAM,FileProvider.getUriForFile(this,BuildConfig.APPLICATION_ID+".updates",file)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                     startActivity(Intent.createChooser(share,"Share clip"));
                 } else if(item==2) export(file);
-                else if(item==3) exportData(file.getParentFile());
-                else if(item==4) startActivity(new Intent(this,MapActivity.class).putExtra("ride",file.getParentFile().getName()));
-                else if(item==5) new AlertDialog.Builder(this).setMessage(ClipStore.protectedClip(file)?"Allow this clip to be recycled when loop storage fills? Export a copy first if you need it.":"Keep this clip so loop recording cannot recycle it?")
+                else if(item==3) {if(!ClipStore.finalized(file)||RecordingService.running){Toast.makeText(this,"Stop recording before overlay export",Toast.LENGTH_LONG).show();return;}startActivity(new Intent(this,OverlayExportActivity.class).putExtra("clip",file.getPath()));}
+                else if(item==4) exportData(file.getParentFile());
+                else if(item==5) startActivity(new Intent(this,MapActivity.class).putExtra("ride",file.getParentFile().getName()));
+                else if(item==6) new AlertDialog.Builder(this).setMessage(ClipStore.protectedClip(file)?"Allow this clip to be recycled when loop storage fills? Export a copy first if you need it.":"Keep this clip so loop recording cannot recycle it?")
                     .setNegativeButton("Cancel",null).setPositiveButton("Confirm",(d,w)->{
                         try { if(ClipStore.protectedClip(file)) { if(!new File(file.getPath()+".protected").delete())throw new java.io.IOException(); }
                             else ClipStore.mark(file,".protected");showList(); }

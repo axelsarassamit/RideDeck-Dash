@@ -1,0 +1,7 @@
+package com.axelsarassamit.ridedeck.dash;
+import java.io.*;import java.nio.file.*;import org.junit.Test;import static org.junit.Assert.*;
+public class RideTelemetryTest {
+ static void write(Path file,String text)throws IOException{Files.write(file,text.getBytes(java.nio.charset.StandardCharsets.UTF_8));}
+ @Test public void loopSegmentUsesOwnStartAndNeverUsesFutureOrStaleData()throws Exception{File dir=Files.createTempDirectory("dash-telemetry").toFile();try{File clip=new File(dir,"rear-0002.mp4");write(new File(dir,"capture.csv").toPath(),"header\n1000,1000000000,,rear,file_started,1,0,rear-0001.mp4\n11000,11000000000,,rear,file_started,1,0,rear-0002.mp4\n");write(new File(dir,"route.csv").toPath(),"header\n10000,10000000000,0,0,5,10\n12000,12000000000,0,0.0001,5,20,100,90,80,1\n");RideTelemetry data=new RideTelemetry(clip);assertEquals(11000000000L,data.clipElapsed);assertEquals(10,data.at(0).speed,.01);assertEquals(20,data.at(1000000).speed,.01);assertEquals(80,data.at(1000000).battery);assertTrue(data.at(1000000).charging);assertNull(data.at(8000000));}finally{for(File f:dir.listFiles())f.delete();dir.delete();}}
+ @Test public void oldClipWithoutTimingReportsUnavailable()throws Exception{File dir=Files.createTempDirectory("dash-no-time").toFile();try{RideTelemetry data=new RideTelemetry(new File(dir,"front-0001.mp4"));assertNull(data.at(0));assertEquals("Front camera",data.camera);}finally{dir.delete();}}
+}

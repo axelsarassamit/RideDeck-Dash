@@ -34,6 +34,7 @@ public final class RecordingService extends Service {
     private BufferedWriter route;
     private PowerManager.WakeLock wake;
     private boolean stopping;
+    private final DriveAutomation driveAutomation=new DriveAutomation();
     private long protectUntil;
     private int rotation;
     private int startedTracks;
@@ -46,8 +47,8 @@ public final class RecordingService extends Service {
             if (!running || route == null) return;
             position = new Location(p);
             try {
-                route.write(String.format(Locale.ROOT, "%d,%d,%.8f,%.8f,%.1f,%s\n", p.getTime(), p.getElapsedRealtimeNanos(),
-                    p.getLatitude(), p.getLongitude(), p.getAccuracy(), p.hasSpeed() ? Float.toString(p.getSpeed()) : ""));
+                route.write(String.format(Locale.ROOT, "%d,%d,%.8f,%.8f,%.1f,%s,%s,%s,%d,%d\n", p.getTime(), p.getElapsedRealtimeNanos(),
+                    p.getLatitude(), p.getLongitude(), p.getAccuracy(), p.hasSpeed() ? Float.toString(p.getSpeed()) : "",p.hasAltitude()?Double.toString(p.getAltitude()):"",p.hasBearing()?Float.toString(p.getBearing()):"",batteryPercent(),charging()?1:0));
                 route.flush();
             } catch (IOException error) { fail("Route could not be saved"); }
         }
@@ -64,7 +65,7 @@ public final class RecordingService extends Service {
     }
     @Override public int onStartCommand(Intent intent, int flags, int id) {
         String action = intent == null ? "STOP" : intent.getAction();
-        if ("STOP".equals(action)) { worker.post(() -> finish("Recording stopped")); return START_NOT_STICKY; }
+        if ("STOP".equals(action)) { DashboardActivity.motionConsumed=true;DashboardActivity.consumedSession=DashBridgeProvider.SESSIONS.generation(); worker.post(() -> finish("Recording stopped")); return START_NOT_STICKY; }
         if ("PROTECT".equals(action)) { worker.post(this::protect); return START_NOT_STICKY; }
         if (running) return START_NOT_STICKY;
         if (!DashApplication.isVisible()) { stopSelf(); return START_NOT_STICKY; }
@@ -80,6 +81,8 @@ public final class RecordingService extends Service {
         worker.post(() -> begin(intent == null ? "dual" : intent.getStringExtra("mode")));
         return START_NOT_STICKY;
     }
+    private int batteryPercent(){Intent b=registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));return b==null?-1:RecordingGate.batteryPercent(b.getIntExtra(BatteryManager.EXTRA_LEVEL,-1),b.getIntExtra(BatteryManager.EXTRA_SCALE,-1));}
+    private boolean charging(){Intent b=registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));return b!=null&&b.getIntExtra(BatteryManager.EXTRA_PLUGGED,0)!=0;}
     private Notification notification(String text) {
         PendingIntent open = PendingIntent.getActivity(this, 0, new Intent(this, DashboardActivity.class), PendingIntent.FLAG_IMMUTABLE);
         PendingIntent stop = PendingIntent.getService(this, 1, new Intent(this, RecordingService.class).setAction("STOP"), PendingIntent.FLAG_IMMUTABLE);
@@ -98,7 +101,7 @@ public final class RecordingService extends Service {
             rideDirectory = new File(store.root(), Long.toString(System.currentTimeMillis()));
             if (!rideDirectory.mkdirs()) throw new IOException("Cannot create ride folder");
             route = new BufferedWriter(new FileWriter(new File(rideDirectory, "route.csv")));
-            route.write("utc_ms,elapsed_ns,latitude,longitude,accuracy_m,speed_m_s\n"); route.flush();
+            route.write("utc_ms,elapsed_ns,latitude,longitude,accuracy_m,speed_m_s,altitude_m,bearing_deg,battery_percent,charging\n"); route.flush();
             events = new BufferedWriter(new FileWriter(new File(rideDirectory, "capture.csv")));
             events.write("utc_ms,elapsed_ns,sensor_ns,camera,event,eis,ois,file\n"); events.flush();
             position = null; startedTracks = 0; protectUntil = 0;
@@ -144,6 +147,11 @@ public final class RecordingService extends Service {
         if (gate != RecordingGate.Result.ALLOWED) {
             finish(gate == RecordingGate.Result.COMPANION_REQUIRED ? "Stopped: no active RideDeck ride session" : "Stopped: connect charger or charge to 50%");
             return false;
+        }
+        Location fix=position;long now=SystemClock.elapsedRealtime();boolean fresh=fix!=null&&fix.hasSpeed()&&SystemClock.elapsedRealtimeNanos()-fix.getElapsedRealtimeNanos()<6000000000L;
+        int stopSeconds=settings.number("autostop",60);
+        if(stopSeconds>0 && driveAutomation.stop(now,plugged,fresh,fix==null?0:fix.getSpeed(),fix==null?Float.MAX_VALUE:fix.getAccuracy(),stopSeconds*1000L)){
+            finish("Stopped: charger unplugged and bike stationary");return false;
         }
         return true;
     }
@@ -291,7 +299,7 @@ public final class RecordingService extends Service {
                             request.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, eis);
                             request.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, ois);
                             session.setRepeatingRequest(request.build(), captureCallback, worker);
-                            recorder.start(); recording = true;
+                            recorder.start(); recording = true; event("file_started",current,null);
                             if(!"off".equals(settings.text("audio","off")) && ("rear".equals(label)||tracks.size()==1)){
                                 if(Build.VERSION.SDK_INT<28) throw new IOException("Verified audio input routing requires Android 9 or newer");
                                 audioStatus="Checking microphone input";

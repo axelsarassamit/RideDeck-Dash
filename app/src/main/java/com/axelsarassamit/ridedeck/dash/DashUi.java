@@ -8,7 +8,7 @@ import android.view.View;
 import android.view.WindowInsets;
 
 final class DashUi {
-    static final int INK = Color.rgb(16,28,36), WHITE = Color.rgb(244,246,250), BLUE = Color.rgb(144,200,255);
+    static final int INK = Color.rgb(16,18,21), WHITE = Color.rgb(244,246,250), BLUE = Color.rgb(144,200,255);
     static LinearLayout page(Activity activity) {
         LinearLayout page = new LinearLayout(activity); page.setOrientation(LinearLayout.VERTICAL);
         page.setBackgroundColor(INK); page.setPadding(20,20,20,20);
@@ -21,6 +21,7 @@ final class DashUi {
         });
         return page;
     }
+    static void card(android.view.View v,int color,float radius){android.graphics.drawable.GradientDrawable d=new android.graphics.drawable.GradientDrawable();d.setColor(color);d.setCornerRadius(radius*v.getResources().getDisplayMetrics().density);v.setBackground(d);}
     static TextView text(Activity a, LinearLayout page, String value, int size) {
         TextView t = new TextView(a); t.setText(value); t.setTextColor(WHITE); t.setTextSize(size); t.setPadding(8,10,8,10); page.addView(t); return t;
     }
