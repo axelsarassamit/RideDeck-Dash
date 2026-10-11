@@ -2,7 +2,7 @@
 
 A separate Android dashcam for RideDeck and RideDeck for Yamaha. Package: com.axelsarassamit.ridedeck.dash.
 
-## Ride automation and customizable overlay exports: 0.4.0
+## Ride automation and customizable overlay exports: 0.4.1
 
 - Front and rear Camera2 recording, with an explicit single-camera choice when a phone cannot run both.
 - Separate 720p or 1080p H.264 MP4 files at a requested 30 fps, with adjustable 4 to 24 Mbps video bitrate. Unsupported configurations fail explicitly.

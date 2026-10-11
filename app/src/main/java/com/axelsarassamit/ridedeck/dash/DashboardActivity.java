@@ -13,16 +13,18 @@ public final class DashboardActivity extends Activity {
   if(wide){root.setOrientation(LinearLayout.HORIZONTAL);ScrollView left=new ScrollView(this),right=new ScrollView(this);left.addView(main);right.addView(controls);root.addView(left,new LinearLayout.LayoutParams(0,-1,2.3f));root.addView(right,new LinearLayout.LayoutParams(0,-1,1));setContentView(root);}
   else{ScrollView scroll=new ScrollView(this);root.addView(main);root.addView(controls);scroll.addView(root);setContentView(scroll);}
   LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);main.addView(header);
-  TextView title=DashUi.text(this,header,"RideDeck Dash",26);title.setTypeface(null,android.graphics.Typeface.BOLD);title.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
+  TextView title=DashUi.text(this,header,"RideDeck Dash",wide?22:26);title.setTypeface(null,android.graphics.Typeface.BOLD);title.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
   DashUi.button(this,header,"Menu",v->menu()).setLayoutParams(new LinearLayout.LayoutParams(dp(92),dp(52)));
-  DashUi.text(this,main,"Your ride. Both cameras. Every moment.",14);
+  if(!wide)DashUi.text(this,main,"Your ride. Both cameras. Every moment.",14);
   LinearLayout capture=new LinearLayout(this);capture.setOrientation(LinearLayout.VERTICAL);capture.setPadding(dp(10),dp(8),dp(10),dp(10));DashUi.card(capture,android.graphics.Color.rgb(20,27,35),18);main.addView(capture);
   status=DashUi.text(this,capture,"Ready",16);
   FrameLayout cameras=new FrameLayout(this);capture.addView(cameras,new LinearLayout.LayoutParams(-1,dp(wide?210:260)));
   rear=new ImageView(this);rear.setContentDescription("Rear camera live view");rear.setScaleType(ImageView.ScaleType.FIT_CENTER);rear.setBackgroundColor(android.graphics.Color.BLACK);cameras.addView(rear,new FrameLayout.LayoutParams(-1,-1));
-  front=new ImageView(this);front.setContentDescription("Front camera live view");front.setScaleType(ImageView.ScaleType.FIT_CENTER);front.setBackgroundColor(android.graphics.Color.BLACK);FrameLayout.LayoutParams inset=new FrameLayout.LayoutParams(dp(wide?130:110),dp(wide?85:80),Gravity.TOP|Gravity.END);inset.setMargins(0,dp(8),dp(8),0);cameras.addView(front,inset);
+  front=new ImageView(this);front.setContentDescription("Front camera live view");front.setScaleType(ImageView.ScaleType.FIT_CENTER);front.setBackgroundColor(android.graphics.Color.BLACK);FrameLayout.LayoutParams inset=new FrameLayout.LayoutParams(dp(wide?95:110),dp(wide?65:80),Gravity.TOP|Gravity.END);inset.setMargins(0,dp(8),dp(8),0);cameras.addView(front,inset);
   viewLabel=DashUi.text(this,capture,"Camera view is off",12);viewLabel.setTextColor(DashUi.BLUE);
   LinearLayout telemetry=new LinearLayout(this);capture.addView(telemetry);speed=tile(telemetry,"GPS unavailable\nkm/h");gpsCard=tile(telemetry,"GPS\nWaiting");stabilizationCard=tile(telemetry,"MAX\nStabilization");
+  if(wide){for(TextView card:new TextView[]{speed,gpsCard,stabilizationCard}){card.setTextSize(17);card.getLayoutParams().height=dp(55);}
+   root.getViewTreeObserver().addOnGlobalLayoutListener(()->{int height=Math.max(dp(100),root.getHeight()-root.getPaddingTop()-root.getPaddingBottom()-header.getHeight()-status.getHeight()-viewLabel.getHeight()-telemetry.getHeight()-capture.getPaddingTop()-capture.getPaddingBottom());if(cameras.getLayoutParams().height!=height){cameras.getLayoutParams().height=height;cameras.requestLayout();}});}
   details=DashUi.text(this,main,"",14);
   LinearLayout actions=controls; if(!wide){actions=new LinearLayout(this);actions.setOrientation(LinearLayout.HORIZONTAL);controls.addView(actions);}
   start=DashUi.button(this,actions,"Start recording",v->request(true));protect=DashUi.button(this,actions,"Protect clip",v->command("PROTECT"));stop=DashUi.button(this,actions,"Stop recording",v->{motionConsumed=true;consumedSession=DashBridgeProvider.SESSIONS.generation();command("STOP");});
