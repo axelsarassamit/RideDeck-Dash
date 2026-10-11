@@ -314,7 +314,7 @@ public final class RecordingService extends Service {
                         try {
                             request = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
                             request.addTarget(target); request.addTarget(view.getSurface());
-                            request.set(CaptureRequest.CONTROL_AF_MODE,CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
+                            CameraFocus.apply(request, manager.getCameraCharacteristics(id), settings, label);
                             request.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, eis);
                             request.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, ois);
                             session.setRepeatingRequest(request.build(), captureCallback, worker);
@@ -350,6 +350,7 @@ public final class RecordingService extends Service {
                                     if (frames != 1 && frames != 30 && frames != 90 && frames != 180 && frames != 240) return;
                                     appliedEis = result.get(CaptureResult.CONTROL_VIDEO_STABILIZATION_MODE);
                                     appliedOis = result.get(CaptureResult.LENS_OPTICAL_STABILIZATION_MODE);
+                                    android.util.Log.i("DashFocus", label + " frame=" + frames + " af=" + result.get(CaptureResult.CONTROL_AF_MODE) + " distance=" + result.get(CaptureResult.LENS_FOCUS_DISTANCE));
                                     updateCameraStatus();
                                     try {
                                         event("frame_"+frames, current, result.get(CaptureResult.SENSOR_TIMESTAMP));

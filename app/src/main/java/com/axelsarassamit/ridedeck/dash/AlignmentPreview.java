@@ -26,7 +26,7 @@ final class AlignmentPreview {
    },handler);}
  }catch(Exception e){PreviewFrames.message=e.getMessage();}});}
  void configure(CameraDevice camera,Surface surface){try{camera.createCaptureSession(Collections.singletonList(surface),new CameraCaptureSession.StateCallback(){
-  public void onConfigured(CameraCaptureSession session){if(closed){session.close();return;}try{CaptureRequest.Builder r=camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);r.addTarget(surface);session.setRepeatingRequest(r.build(),null,handler);}catch(Exception e){PreviewFrames.message="Camera view unavailable";}}
+  public void onConfigured(CameraCaptureSession session){if(closed){session.close();return;}try{CaptureRequest.Builder r=camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);r.addTarget(surface);CameraCharacteristics c=context.getSystemService(CameraManager.class).getCameraCharacteristics(camera.getId());String label=Objects.equals(c.get(CameraCharacteristics.LENS_FACING),CameraCharacteristics.LENS_FACING_BACK)?"rear":"front";CameraFocus.apply(r,c,new DashSettings(context),label);session.setRepeatingRequest(r.build(),null,handler);}catch(Exception e){PreviewFrames.message="Camera view unavailable";}}
   public void onConfigureFailed(CameraCaptureSession s){s.close();PreviewFrames.message="Camera view configuration unavailable";}
  },handler);}catch(Exception e){PreviewFrames.message="Camera view unavailable";}}
  void close(Runnable after){closed=true;handler.post(()->{for(CameraDevice c:cameras)c.close();for(ImageReader r:readers)r.close();thread.quitSafely();if(after!=null)new Handler(Looper.getMainLooper()).postDelayed(after,300);});}
