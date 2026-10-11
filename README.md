@@ -17,6 +17,10 @@ A separate Android dashcam for RideDeck and RideDeck for Yamaha. Package: com.ax
 - Online OpenStreetMap map, recorded ride trace and tapped-destination motorcycle route planning through public Valhalla. Coordinates are sent for routing only after confirmation. This is route planning, not turn-by-turn spoken navigation; public services have no guaranteed availability. Leaflet 1.9.4 is bundled with its license.
 - Portrait and landscape dashboard. The foreground service retains camera ownership through dashboard rotation.
 
+## Clip selection and deletion: 0.4.2
+
+In Recordings, tap Select clips or long-press a clip. Choose individual videos, Select all or Clear selection. The toolbar shows selected count, combined size and protected count. Delete selected requires confirmation that names the count/size and explicitly includes protected clips. Capture must be stopped. Successful removals clear their ready/protected markers; failed clips stay selected for retry. Ride CSVs and exported gallery copies are kept. Selection survives screen rotation.
+
 ## New ride controls and overlays
 
 - Concept-inspired large fitted rear view, front-camera inset, telemetry cards and a focused menu. Front-only mode fills the main view.
