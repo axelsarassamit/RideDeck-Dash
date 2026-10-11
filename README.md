@@ -54,3 +54,11 @@ Use JDK 17 and Android SDK 36. Run gradlew.bat :app:testDebugUnitTest :app:assem
 ## Camera-first dashboard
 
 The dashboard uses one fixed screen in portrait and landscape, with the entire camera frame visible and a front-camera inset. Recording status, speed, GPS and stabilization appear as compact live-view overlays. Record/Stop and Protect clip are the only main actions. The grouped Menu contains recordings, map and route, recording information, presets, cameras, microphones, automation, overlays and updates. The information window groups camera, storage, audio and power details.
+
+## Social video presets and saved settings
+
+Menu > Social video presets prepares TikTok, Instagram and Facebook exports. Purpose presets include Quick highlight, Ride story, Route tour and Clean full clip. Custom settings cover format, quality, bitrate, trim start, duration, full-picture fit or center crop, audio or mute and data overlays. Selected clips include a framing preview. Exports are separate gallery copies; Share opens Android's chooser.
+
+Menu > My saved settings provides three named slots for the complete recording, audio, camera, storage, automation, overlay and social configuration. Loading is confirmed and blocked while recording/finalizing. Capture changes apply to the next recording. Slots are stored separately.
+
+See [social preset choices and limits](docs/SOCIAL_PRESETS.md).

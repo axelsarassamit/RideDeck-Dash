@@ -1,0 +1,11 @@
+package com.axelsarassamit.ridedeck.dash;
+import android.content.*;import org.json.*;import java.util.*;
+final class SavedSettings {
+ final SharedPreferences saved;final DashSettings settings;
+ SavedSettings(Context c){saved=c.getSharedPreferences("dash-user-presets",Context.MODE_PRIVATE);settings=new DashSettings(c);}
+ String name(int slot){return saved.getString("name"+slot,"Slot "+slot+" · empty");}
+ boolean exists(int slot){return saved.contains("data"+slot);}
+ void save(int slot,String name)throws JSONException{JSONObject data=new JSONObject();for(Map.Entry<String,?> entry:settings.prefs.getAll().entrySet())if(entry.getValue() instanceof String||entry.getValue() instanceof Integer)data.put(entry.getKey(),entry.getValue());saved.edit().putString("data"+slot,data.toString()).putString("name"+slot,name).apply();}
+ void load(int slot)throws JSONException{JSONObject data=new JSONObject(saved.getString("data"+slot,"{}"));Map<String,Object> checked=new HashMap<>();Iterator<String> keys=data.keys();while(keys.hasNext()){String key=keys.next();Object value=data.get(key);if(!(value instanceof String)&&!(value instanceof Integer))throw new JSONException("Unsupported preset value");checked.put(key,value);}SharedPreferences.Editor edit=settings.prefs.edit().clear();for(Map.Entry<String,Object> entry:checked.entrySet()){if(entry.getValue() instanceof String)edit.putString(entry.getKey(),(String)entry.getValue());else edit.putInt(entry.getKey(),(Integer)entry.getValue());}edit.apply();}
+ void remove(int slot){saved.edit().remove("data"+slot).remove("name"+slot).apply();}
+}

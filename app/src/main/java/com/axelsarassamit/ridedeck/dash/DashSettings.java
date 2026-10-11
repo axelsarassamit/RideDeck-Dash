@@ -5,6 +5,7 @@ final class DashSettings {
  final java.util.Map<String,?> snapshot;
  DashSettings(Context c){this(c,false);}
  DashSettings(Context c,boolean frozen){prefs=c.getSharedPreferences("dash-settings",Context.MODE_PRIVATE);snapshot=frozen?prefs.getAll():null;}
+ DashSettings(Context c,java.util.Map<String,?> values){prefs=c.getSharedPreferences("dash-settings",Context.MODE_PRIVATE);snapshot=new java.util.HashMap<>(values);}
  int number(String key,int fallback){return snapshot==null?prefs.getInt(key,fallback):snapshot.get(key) instanceof Integer?(Integer)snapshot.get(key):fallback;}
  String text(String key,String fallback){return snapshot==null?prefs.getString(key,fallback):snapshot.get(key) instanceof String?(String)snapshot.get(key):fallback;}
  void put(String key,int value){prefs.edit().putInt(key,value).apply();}

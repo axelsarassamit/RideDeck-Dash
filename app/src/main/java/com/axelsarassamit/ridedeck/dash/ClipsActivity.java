@@ -49,7 +49,8 @@ public final class ClipsActivity extends Activity {
             String label=(ClipStore.protectedClip(file)?"Protected · ":"")+file.getName()+"\n"+new SimpleDateFormat("dd MMM HH:mm:ss",Locale.getDefault()).format(new Date(file.lastModified()))
                 +" · "+(file.length()/1024/1024)+" MB"+(ClipStore.finalized(file)?"":" · recording / unverified");
             if(selecting){CheckBox box=new CheckBox(this);box.setText(label);box.setTextColor(DashUi.WHITE);box.setTextSize(16);box.setPadding(12,20,12,20);box.setMinHeight((int)(72*getResources().getDisplayMetrics().density));box.setChecked(selected.contains(file.getPath()));box.setOnCheckedChangeListener((button,on)->{if(on)selected.add(file.getPath());else selected.remove(file.getPath());updateSelection(files);});page.addView(box);continue;}
-            Button clipButton=DashUi.button(this,page,label,v -> new AlertDialog.Builder(this).setTitle(file.getName()).setItems(new String[]{"Play","Share video","Save to gallery","Export with overlays","Save ride data","Show ride map",ClipStore.protectedClip(file)?"Allow loop recycling":"Keep clip","Delete clip"},(dialog,item) -> {
+            if(getIntent().getBooleanExtra("socialPick",false)){DashUi.button(this,page,label,v->{startActivity(new Intent(this,SocialSettingsActivity.class).putExtra("clip",file.getPath()));finish();});continue;}
+            Button clipButton=DashUi.button(this,page,label,v -> new AlertDialog.Builder(this).setTitle(file.getName()).setItems(new String[]{"Play","Share video","Save to gallery","Export with overlays","Save ride data","Show ride map",ClipStore.protectedClip(file)?"Allow loop recycling":"Keep clip","Delete clip","Social video export"},(dialog,item) -> {
                 if(item==0) play(file);
                 else if(item==1) {
                     if(!ClipStore.finalized(file)) { Toast.makeText(this,"Stop recording before sharing this clip",Toast.LENGTH_LONG).show(); return; }
@@ -65,6 +66,7 @@ public final class ClipsActivity extends Activity {
                             else ClipStore.mark(file,".protected");showList(); }
                         catch(java.io.IOException error){Toast.makeText(this,"Could not change clip protection",Toast.LENGTH_LONG).show();}
                     }).show();
+                else if(item==8)startActivity(new Intent(this,SocialSettingsActivity.class).putExtra("clip",file.getPath()));
                 else new AlertDialog.Builder(this).setTitle("Delete this clip?").setMessage("This removes the internal video permanently, including a protected clip. Export a copy first if you need it.")
                     .setNegativeButton("Cancel",null).setPositiveButton("Delete clip",(d,w)->{
                         if(RecordingService.running && !ClipStore.finalized(file)) {Toast.makeText(this,"Stop recording before deleting this clip",Toast.LENGTH_LONG).show();return;}

@@ -40,6 +40,8 @@ public final class DashboardActivity extends Activity {
   final Dialog dialog=new Dialog(this);LinearLayout page=DashUi.page(this);ScrollView scroll=new ScrollView(this);scroll.addView(page);dialog.setContentView(scroll);
   TextView heading=DashUi.text(this,page,"RideDeck Dash",24);heading.setTypeface(null,android.graphics.Typeface.BOLD);DashUi.text(this,page,"Your camera. Your ride.",14);
   menuSection(page,"RIDE");menuItem(page,"Recordings",dialog,()->startActivity(new Intent(this,ClipsActivity.class)));menuItem(page,"Map and route",dialog,()->startActivity(new Intent(this,MapActivity.class)));
+  menuItem(page,"Social video presets",dialog,()->startActivity(new Intent(this,SocialSettingsActivity.class)));
+  menuItem(page,"My saved settings",dialog,()->startActivity(new Intent(this,SocialSettingsActivity.class).putExtra("section","saved")));
   menuItem(page,"Recording information",dialog,this::information);
   menuSection(page,"CAMERA & RECORDING");menuItem(page,"Ride setup and presets",dialog,()->settingsSection("video"));menuItem(page,"Camera selection",dialog,()->{if(RecordingService.running){Toast.makeText(this,"Stop recording to change cameras",Toast.LENGTH_LONG).show();return;}new AlertDialog.Builder(this).setTitle("Cameras").setSingleChoiceItems(new String[]{"Rear + front","Rear only","Front only"},"dual".equals(mode)?0:"rear".equals(mode)?1:2,(d,n)->{mode=new String[]{"dual","rear","front"}[n];settings.put("mode",mode);closeAlignment(null);d.dismiss();}).setNegativeButton("Cancel",null).show();});
   menuItem(page,alignment==null?"Open camera view":"Close camera view",dialog,()->{if(RecordingService.running){Toast.makeText(this,"Live view stays on while recording",Toast.LENGTH_SHORT).show();return;}if(alignment!=null){autoView=false;closeAlignment(null);}else{autoView=true;request(false);}});
@@ -83,6 +85,6 @@ public final class DashboardActivity extends Activity {
  void closeAlignment(Runnable after){AlignmentPreview old=alignment;alignment=null;if(old!=null){closingView=true;old.close(()->{closingView=false;if(after!=null)after.run();});}else if(after!=null)after.run();}
  void begin(){if(!visible||RecordingService.finalizing){starting=false;return;}PreviewFrames.rear=null;PreviewFrames.front=null;Intent i=new Intent(this,RecordingService.class).setAction("START").putExtra("mode",mode).putExtra("rotation",getWindowManager().getDefaultDisplay().getRotation());try{startForegroundService(i);ui.postDelayed(()->starting=false,1000);}catch(Exception e){starting=false;Toast.makeText(this,e.getMessage(),Toast.LENGTH_LONG).show();}}
  void command(String action){if(RecordingService.running)startService(new Intent(this,RecordingService.class).setAction(action));}
- protected void onStart(){super.onStart();visible=true;PreviewFrames.enabled=true;ui.post(refresh);}
+ protected void onStart(){super.onStart();if(!RecordingService.running)mode=settings.text("mode","dual");visible=true;PreviewFrames.enabled=true;ui.post(refresh);}
  protected void onStop(){if(idleLocations!=null){idleLocations.removeUpdates(idleGps);idleLocations=null;}idlePosition=null;visible=false;PreviewFrames.enabled=false;closeAlignment(null);ui.removeCallbacks(refresh);super.onStop();}
 }
