@@ -51,6 +51,21 @@ Yamaha integration head: 58478d978e8856d4e16e7e685d8dc1c915761dcd. Android run 3
 
 ## Limits
 
-This is a development dashcam release. No motorbike ride, sustained heat/storage-pressure test, perceptual shake-reduction comparison, crash recovery of damaged MP4s or real Y-Connect speed feed has been validated. There is no burned-in speed overlay or spoken turn-by-turn navigation yet. Public map/routing service availability is not guaranteed. Interrupted MP4s are retained but may be unplayable. Android devices other than the tested Xiaomi are not physically validated.
+This is a development dashcam release. No motorbike ride, sustained heat/storage-pressure test, perceptual shake-reduction comparison, crash recovery of damaged MP4s or real Y-Connect speed feed has been validated. Optional overlay exports are now available; spoken turn-by-turn navigation is not implemented. Public map/routing service availability is not guaranteed. Interrupted MP4s are retained but may be unplayable. Android devices other than the tested Xiaomi are not physically validated.
 
 The stable updater intentionally excludes development prereleases. The permanent app ID, increasing numeric version code and preserved signing key support in-place updates. GitHub build and signed-release run IDs for the final commit are verified after publication.
+
+
+## Ride automation and overlay update, 2026-10-11
+
+Dash 0.4.1 code head: 7cecb601268debe782725f7099c8c0d975e80f9e. Exact Android run 38109622868 and signed-release run 38109624518 passed. All 16 unit tests and debug/release lint passed locally. Published APK SHA-256: 980fbf59ec162930c6d41b83d5eec9677978d1cc983f1e9689ca6240398f695a. Permanent signer matched; installed by replacement and previous protected footage remained visible.
+
+Phone testing began only after implementation and local signed checks finished. An initial finished-build check found landscape telemetry below the viewport; 0.4.1 corrected this and the final phone check showed the full fitted camera view, inset and all three telemetry cards together. Recording continued through portrait/landscape switches. Microphone choices displayed Phone microphone 1/2 and Bluetooth headset with its product name, without Xiaomi model codes or Android device IDs.
+
+Original-signed standard RideDeck 0.12.12 (edd1d3aaab5f4637e0ae55d28e7cefcaeed5953b, Android 38109188321, signing 38109201286) and Yamaha 0.12.28 (eabb54c3bb97b0ea7a72e1a954841f8dba5ff0be, Android 38109194271, signing 38109205271) were installed by replacement. Standard Resume and Yamaha Start ride each authenticated the lease, opened Dashboard and started dual 1080p recording automatically. Manual Stop remained stopped in the current standard session. Standard Pause and Yamaha End released their sessions. The MA390 Wireless actual input route was verified during Yamaha recording and the final published-APK standalone check.
+
+Temporarily disabling Dash hid Dash actions in both hosts and kept their ordinary ride controls available. Dash was restored to its default enabled state. No app was uninstalled or cleared.
+
+All-data overlay exports succeeded. A longer initial copy decoded all 1,625 H.264 video frames and 2,540 AAC audio frames. Frame inspection showed unavailable fields before GPS arrival, then real speed, timestamp, accuracy, altitude, heading, battery and the offline GPS trace. The final published 0.4.1 headset recording exported to a 1920x1080 H.264/AAC copy and decoded all 432 video frames and 677 audio frames. Display rotation metadata was retained. Originals stayed in the clip library. Private footage and location data were not committed or published.
+
+The charger-disconnected plus sixty-seconds-stationary policy passed unit checks, including stale GPS, poor accuracy, movement and reconnection resets. The user explicitly skipped the physical unplug check. Standalone GPS movement auto-start has not been road-tested. No claims are made about wind audio quality, long ride heat, shake-reduction effectiveness or Y-Connect telemetry. Final recording stopped, both test rides inactive, headset selection retained and idle camera view closed.
