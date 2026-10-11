@@ -16,7 +16,7 @@ final class TelemetryOverlay extends BitmapOverlay {
   // The RideDeck mark is mandatory even in a data-free preset.
   float brandW=230*u;panel(left,top,brandW,66*u);logo.setBounds((int)(left+8*u),(int)(top+6*u),(int)(left+62*u),(int)(top+60*u));logo.draw(c);text("RideDeck",left+76*u,top+31*u,24*u,white,true);text("DASH",left+77*u,top+51*u,12*u,blue,true);
   RideTelemetry.Sample s=data.at(timeUs);boolean mph=settings.number("overlay_mph",0)==1;
-  if(on("time")){String time=data.clipUtc<0?"TIME UNAVAILABLE":new SimpleDateFormat("HH:mm:ss",Locale.ROOT).format(new Date(data.clipUtc+timeUs/1000));float w=190*u;float x=portrait?left:right-w;float y=portrait?top+76*u:top;panel(x,y,w,66*u);text(time,x+16*u,y+29*u,24*u,white,true);text(data.clipUtc<0?"NO TIMESTAMP":new SimpleDateFormat("dd MMM yyyy",Locale.ROOT).format(new Date(data.clipUtc+timeUs/1000)),x+16*u,y+50*u,13*u,muted,false);}
+  if(on("time")){String time=data.clipUtc<0?"TIME UNAVAILABLE":new SimpleDateFormat("HH:mm:ss",Locale.ROOT).format(new Date(data.clipUtc+timeUs/1000));float w=190*u;float x=portrait?left:right-w;float y=portrait?top+76*u:top;panel(x,y,w,66*u);text(time,x+16*u,y+29*u,24*u,white,true);text(data.clipUtc<0?"NO TIMESTAMP":new SimpleDateFormat("dd MMM yyyy",Locale.US).format(new Date(data.clipUtc+timeUs/1000)),x+16*u,y+50*u,13*u,muted,false);}
   List<String[]> stats=new ArrayList<>();
   if(on("distance"))stats.add(new String[]{s==null?"?":String.format(Locale.ROOT,"%.1f",s.distance/(mph?1609.344:1000)),mph?"RIDE / MI":"RIDE / KM"});
   if(on("altitude"))stats.add(new String[]{s==null||Double.isNaN(s.altitude)?"?":String.format(Locale.ROOT,"%.0f m",s.altitude),"ALTITUDE"});

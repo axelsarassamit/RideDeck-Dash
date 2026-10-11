@@ -83,3 +83,5 @@ Exported copies always carry the existing RideDeck road mark, including logo-onl
 Optional road context uses one bounded OpenStreetMap vector query near the clip start through Overpass, with a seven-day local cache, response limit and timeout. No OSM raster tiles are downloaded for export. It is a limited context map, not turn-by-turn navigation or a full offline road database; longer clips can leave its coverage. Public Overpass is a development dependency and a configured/self-hosted service will be needed for larger deployment. Offline or failed road loading retains a labelled GPS trace. Requests send the approximate ride area, explained in overlay settings.
 
 Animated style preview uses explicitly illustrative telemetry and roads, with no demo data exported into recordings. Real outdoor route motion remains pending outdoor footage at the user request.
+
+The first phone export decoded all 761 video frames and retained the original display rotation. Inspection caught a locale-specific month label and road lookup missing a valid GPS sample just before clip start; 0.6.1 corrects both. Original clips remained in place.

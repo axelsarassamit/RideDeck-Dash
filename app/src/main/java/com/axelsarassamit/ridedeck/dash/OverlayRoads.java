@@ -13,8 +13,9 @@ final class OverlayRoads {
     boolean illustrative;
     static OverlayRoads load(Context context, RideTelemetry data) {
         OverlayRoads roads = new OverlayRoads();
-        RideTelemetry.Sample start = null;
-        for (RideTelemetry.Sample s : data.samples) if(s.elapsed >= data.clipElapsed && s.accuracy <= 30){start=s;break;}
+        RideTelemetry.Sample start = data.at(0);
+        if(start!=null&&start.accuracy>30)start=null;
+        if(start==null)for (RideTelemetry.Sample s : data.samples) if(s.elapsed >= data.clipElapsed && s.accuracy <= 30){start=s;break;}
         if(start==null||!Double.isFinite(start.lat)||!Double.isFinite(start.lon)||Math.abs(start.lat)>85||Math.abs(start.lon)>180)return roads;
         double lat=Math.rint(start.lat*100)/100,lon=Math.rint(start.lon*100)/100;
         File cache=new File(context.getCacheDir(),"overlay-roads-"+lat+"-"+lon+".json");
