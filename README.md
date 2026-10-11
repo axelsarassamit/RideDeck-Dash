@@ -50,3 +50,7 @@ Live views now let you align both cameras. Phone/headset audio mixing, voice con
 The stable application ID and permanent signing key are preserved. Numeric version tags produce signed development prereleases with APK, checksums and source provenance. Stable in-app updates verify package, version, signer and SHA-256. Prereleases are intentionally excluded from the stable updater until promoted. See docs/UPDATES.md.
 
 Use JDK 17 and Android SDK 36. Run gradlew.bat :app:testDebugUnitTest :app:assembleDebug :app:lintDebug on Windows. Release signing uses DASH_KEYSTORE_PATH and DASH_KEYSTORE_PASSWORD. Never commit signing files. Debug builds use the .debug package suffix.
+
+## Camera-first dashboard
+
+The dashboard uses one fixed screen in portrait and landscape, with the entire camera frame visible and a front-camera inset. Recording status, speed, GPS and stabilization appear as compact live-view overlays. Record/Stop and Protect clip are the only main actions. The grouped Menu contains recordings, map and route, recording information, presets, cameras, microphones, automation, overlays and updates. The information window groups camera, storage, audio and power details.
