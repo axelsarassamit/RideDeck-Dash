@@ -374,11 +374,12 @@ public final class RecordingService extends Service {
             events.flush();
         }
         void close() {
-            if (session != null) { try { session.stopRepeating(); session.abortCaptures(); } catch (Exception ignored) {} session.close(); }
+            // Keep camera frames flowing until the recorder drains and finalizes its MP4.
             if (recorder != null) {
                 if (recording) try { recorder.stop(); ClipStore.mark(current, ".ready"); event("file_finalized", current, null); } catch (Exception ignored) { /* Retain unverified output, never label it complete. */ }
                 recorder.release();
             }
+            if (session != null) { try { session.stopRepeating(); session.abortCaptures(); } catch (Exception ignored) {} session.close(); }
             if (camera != null) camera.close();
             if(view!=null)view.close();
         }

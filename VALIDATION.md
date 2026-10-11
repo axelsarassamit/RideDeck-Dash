@@ -73,3 +73,5 @@ The charger-disconnected plus sixty-seconds-stationary policy passed unit checks
 ## Road focus, 0.5.5
 
 Rear defaults to locked infinity focus where manual lens control is advertised. Front defaults to supported continuous autofocus. Each camera can instead select approximately 5 metres (0.2 dioptres) or autofocus in Video and storage. Alignment preview and recording share the policy; fixed-focus lenses retain their focus and unsupported manual control falls back to supported autofocus. Settings are included in saved user slots. Actual focus mode and lens distance are sampled in DashFocus device logs. A real road clarity comparison remains unverified.
+
+The first road-focus smoke test confirmed rear AF off with 0.0 dioptres on Xiaomi 14T Pro; front reported fixed focus. It also exposed MP4 finalization hanging after capture requests were aborted before MediaRecorder.stop. Version 0.5.6 keeps frames flowing until recorder finalization, then closes the camera session. The interrupted test files are retained without marking them verified.
