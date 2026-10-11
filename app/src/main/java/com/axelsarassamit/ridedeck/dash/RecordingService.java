@@ -17,6 +17,8 @@ import java.util.*;
 /** Camera ownership and file rollover live here, never in the rotating dashboard. */
 public final class RecordingService extends Service {
     public static volatile boolean running, finalizing;
+    static volatile boolean capturing;
+    static long companionStartUntil;
     public static volatile String state = "Ready to record";
     public static volatile String cameraStatus = "Rear + front, 720p / 30 fps";
     public static volatile Location position;
@@ -37,7 +39,7 @@ public final class RecordingService extends Service {
     private final DriveAutomation driveAutomation=new DriveAutomation();
     private long protectUntil;
     private int rotation;
-    private int startedTracks;
+    private volatile int startedTracks;
     private BufferedWriter events;
     private final BroadcastReceiver battery = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) { if (worker != null) worker.post(() -> enforceGate(i)); }
@@ -67,16 +69,27 @@ public final class RecordingService extends Service {
         String action = intent == null ? "STOP" : intent.getAction();
         if ("STOP".equals(action)) { DashboardActivity.motionConsumed=true;DashboardActivity.consumedSession=DashBridgeProvider.SESSIONS.generation(); worker.post(() -> finish("Recording stopped")); return START_NOT_STICKY; }
         if ("PROTECT".equals(action)) { worker.post(this::protect); return START_NOT_STICKY; }
+        boolean companionStart = companionStartUntil > SystemClock.elapsedRealtime()
+            && DashBridgeProvider.SESSIONS.isActive(SystemClock.elapsedRealtime());
+        companionStartUntil = 0;
         if (running) return START_NOT_STICKY;
-        if (!DashApplication.isVisible()) { stopSelf(); return START_NOT_STICKY; }
+        if (!DashApplication.isVisible() && !companionStart) { stopSelf(); return START_NOT_STICKY; }
         rotation = intent == null ? 0 : intent.getIntExtra("rotation", 0);
+        PreviewFrames.rotation = rotation;
+        PreviewFrames.rear = null; PreviewFrames.front = null;
+        PreviewFrames.rearAt = 0; PreviewFrames.frontAt = 0;
         int types = Build.VERSION.SDK_INT >= 30 ? ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA : 0;
         if (!"off".equals(settings.text("audio","off")) && Build.VERSION.SDK_INT>=30) types |= ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
         if (Build.VERSION.SDK_INT >= 29 && checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
             types |= ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION;
-        if (Build.VERSION.SDK_INT >= 29 && types != 0) startForeground(1, notification("Starting cameras"), types);
-        else startForeground(1, notification("Starting cameras"));
+        try {
+            if (Build.VERSION.SDK_INT >= 29 && types != 0) startForeground(1, notification("Starting cameras"), types);
+            else startForeground(1, notification("Starting cameras"));
+        } catch (RuntimeException error) {
+            state = "Recording unavailable: " + error.getMessage(); stopSelf(); return START_NOT_STICKY;
+        }
         running = true; stopping = false; state = "Starting cameras";
+        capturing = false;
         registerReceiver(battery, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
         worker.post(() -> begin(intent == null ? "dual" : intent.getStringExtra("mode")));
         return START_NOT_STICKY;
@@ -89,6 +102,7 @@ public final class RecordingService extends Service {
         PendingIntent protect = PendingIntent.getService(this, 2, new Intent(this, RecordingService.class).setAction("PROTECT"), PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, "recording").setSmallIcon(com.axelsarassamit.ridedeck.dash.R.drawable.ic_dash)
             .setContentTitle("RideDeck Dash").setContentText(text).setContentIntent(open).setOngoing(true)
+            .addAction(new Notification.Action.Builder(null, "Check camera view", open).build())
             .addAction(new Notification.Action.Builder(null, "Protect clip", protect).build())
             .addAction(new Notification.Action.Builder(null, "Stop", stop).build()).build();
     }
@@ -182,7 +196,7 @@ public final class RecordingService extends Service {
         try { unregisterReceiver(battery); } catch (IllegalArgumentException ignored) {}
         if (wake != null && wake.isHeld()) wake.release();
         if(communicationRoute && Build.VERSION.SDK_INT>=31) audioManager.clearCommunicationDevice(); communicationRoute=false;
-        running=false; state=reason; stopForeground(STOP_FOREGROUND_REMOVE); stopSelf();
+        capturing=false; running=false; state=reason; stopForeground(STOP_FOREGROUND_REMOVE); stopSelf();
     }
     @Override public void onDestroy() {
         if (worker != null) worker.post(() -> { finish("Recording stopped"); thread.quitSafely(); finalizing=false; });
@@ -307,6 +321,7 @@ public final class RecordingService extends Service {
                             }
                             startedTracks++;
                             if (startedTracks == tracks.size()) {
+                                capturing = true;
                                 state = "Recording";
                                 updateCameraStatus();
                                 getSystemService(NotificationManager.class).notify(1, notification("Recording " + tracks.size() + " camera(s)"));

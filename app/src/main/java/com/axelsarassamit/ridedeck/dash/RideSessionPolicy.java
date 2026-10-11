@@ -22,6 +22,9 @@ public final class RideSessionPolicy {
         return owner != null && elapsedMs >= heartbeat && elapsedMs - heartbeat < LEASE_MS;
     }
     public synchronized long generation(){return generation;}
+    public synchronized boolean isOwnedBy(String verifiedPackage, long elapsedMs) {
+        return isActive(elapsedMs) && owner.equals(verifiedPackage);
+    }
     public synchronized void stop(String verifiedPackage) {
         if (verifiedPackage != null && verifiedPackage.equals(owner)) { owner = null; heartbeat = -1; }
     }

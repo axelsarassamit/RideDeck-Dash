@@ -2,6 +2,17 @@ package com.axelsarassamit.ridedeck.dash;
 import org.junit.Test;
 import static org.junit.Assert.*;
 public class RideSessionPolicyTest {
+    @Test public void recordingRequiresCurrentLeaseOwner() {
+        RideSessionPolicy p = new RideSessionPolicy();
+        assertFalse(p.isOwnedBy(RideSessionPolicy.STANDARD, 0));
+        p.renew(RideSessionPolicy.STANDARD, 100);
+        assertTrue(p.isOwnedBy(RideSessionPolicy.STANDARD, 101));
+        assertFalse(p.isOwnedBy(RideSessionPolicy.YAMAHA, 101));
+        assertFalse(p.isOwnedBy(RideSessionPolicy.STANDARD, 15100));
+        p.renew(RideSessionPolicy.YAMAHA, 15100);
+        assertTrue(p.isOwnedBy(RideSessionPolicy.YAMAHA, 15101));
+        assertFalse(p.isOwnedBy(RideSessionPolicy.STANDARD, 15101));
+    }
     @Test public void onlyCompanionsAndExclusiveOwner() {
         RideSessionPolicy policy = new RideSessionPolicy();
         assertFalse(policy.renew("other.app", 0));

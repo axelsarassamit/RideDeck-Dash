@@ -16,9 +16,24 @@ with installed signer SHA-256
 may call the provider. Identity comes from Binder UID, never a supplied name.
 The certificate was verified from both installed host APKs on 2026-10-10.
 
-This bridge does not open cameras or start recording. Start recording in
-the visible Dash application with permission granted. A renewed ride lease
-permits that recording to continue after Dash leaves the foreground.
+The provider does not open cameras. A visible host can bind the explicit
+`com.axelsarassamit.ridedeck.dash.CompanionRecordingService` with
+`BIND_AUTO_CREATE | BIND_INCLUDE_CAPABILITIES` (capabilities flag on API 30+).
+Keep this binding for the active ride. Messenger requests require
+`protocolVersion=1`, a `replyTo`, verified sending UID/signature, and a lease
+owned by that caller. `what=1` requests recording without opening Dash;
+reply `accepted` means the request was submitted, not that capture has begun.
+Missing camera/audio permission requires explicit one-time Dash setup.
+Never automatically launch Dash from a recording request.
+
+`what=2` obtains an angle-check preview. Poll at 1 Hz only while the host
+preview is visible, with one request outstanding. Reply includes
+`protocolVersion`, `accepted`, `recording` (all requested tracks capturing),
+`message`, and optional upright `rearJpeg` / `frontJpeg` arrays, each at most
+100 KB. Frames older than one second are omitted; clear missing images.
+Use FIT_CENTER to show the entire recorded frame. Preview decoding expires
+1.5 seconds after the last request. Background recording still requires a
+renewed ride lease and the existing power gate.
 Hosts must not renew for an idle app without an active ride session.
 Missing provider, incompatible protocol, rejected lease and security errors
 must leave normal host functionality available. Debug host APKs are rejected.

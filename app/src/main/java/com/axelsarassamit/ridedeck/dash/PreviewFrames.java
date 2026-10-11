@@ -8,12 +8,13 @@ final class PreviewFrames {
  static volatile int rotation;
  static volatile int interval=200;
  static volatile boolean enabled;
+ static volatile long companionPreviewUntil, rearAt, frontAt;
  static volatile String message="Tap Camera view to align your cameras";
  static ImageReader reader(String label,int sensor,android.os.Handler handler){
   ImageReader reader=ImageReader.newInstance(640,360,ImageFormat.YUV_420_888,2);
   final long[] last={0};
   reader.setOnImageAvailableListener(r->{try(Image image=r.acquireLatestImage()){
-   if(image==null || !enabled || android.os.SystemClock.elapsedRealtime()-last[0]<interval)return;
+   if(image==null || (!enabled && android.os.SystemClock.elapsedRealtime()>=companionPreviewUntil) || android.os.SystemClock.elapsedRealtime()-last[0]<interval)return;
    last[0]=android.os.SystemClock.elapsedRealtime();
    int w=image.getWidth(),h=image.getHeight();byte[] nv21=new byte[w*h*3/2];Image.Plane[] planes=image.getPlanes();
    for(int n=0;n<3;n++){ByteBuffer b=planes[n].getBuffer();int rows=n==0?h:h/2,cols=n==0?w:w/2;
@@ -23,7 +24,7 @@ final class PreviewFrames {
    byte[] data=out.toByteArray();Bitmap raw=BitmapFactory.decodeByteArray(data,0,data.length);Matrix m=new Matrix();
    m.postRotate("front".equals(label)?(sensor+rotation*90)%360:(sensor-rotation*90+360)%360);
    Bitmap result=Bitmap.createBitmap(raw,0,0,w,h,m,true);if(result!=raw)raw.recycle();
-   if("rear".equals(label))rear=result;else front=result;message="Live camera view";
+   if("rear".equals(label)){rear=result;rearAt=android.os.SystemClock.elapsedRealtime();}else {front=result;frontAt=android.os.SystemClock.elapsedRealtime();}message="Live camera view";
   }catch(Exception e){message="Camera view unavailable";}},handler);return reader;
  }
 }

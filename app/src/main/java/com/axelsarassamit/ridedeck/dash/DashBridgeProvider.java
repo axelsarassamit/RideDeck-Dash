@@ -19,7 +19,7 @@ public final class DashBridgeProvider extends ContentProvider {
     private static final String HOST_CERT = "79f76edba53e22dcb9e4610dc5fa151e5c52d0895c68b2802444f1ced3a1c06f";
     @Override public boolean onCreate() { return true; }
     @Override public Bundle call(String method, String arg, Bundle extras) {
-        String caller = verifiedCaller();
+        String caller = verifiedCaller(getContext(), Binder.getCallingUid());
         if (extras == null || extras.getInt("protocolVersion", 0) != 1)
             throw new IllegalArgumentException("Dash bridge requires protocolVersion 1");
         Bundle result = new Bundle();
@@ -30,9 +30,9 @@ public final class DashBridgeProvider extends ContentProvider {
         result.putBoolean("rideActive", SESSIONS.isActive(SystemClock.elapsedRealtime()));
         return result;
     }
-    private String verifiedCaller() {
-        PackageManager pm = getContext().getPackageManager();
-        String[] packages = pm.getPackagesForUid(Binder.getCallingUid());
+    static String verifiedCaller(android.content.Context context, int uid) {
+        PackageManager pm = context.getPackageManager();
+        String[] packages = pm.getPackagesForUid(uid);
         if (packages != null) for (String name : packages) {
             if (!RideSessionPolicy.STANDARD.equals(name) && !RideSessionPolicy.YAMAHA.equals(name)) continue;
             try {
