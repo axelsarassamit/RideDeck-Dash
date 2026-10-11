@@ -13,18 +13,21 @@ public final class CompanionRecordingService extends Service {
         result.putInt("protocolVersion", 1);
         try {
             String caller = DashBridgeProvider.verifiedCaller(this, request.sendingUid);
-            if ((request.what != 1 && request.what != 2) || request.getData().getInt("protocolVersion") != 1)
+            if ((request.what < 1 || request.what > 3) || request.getData().getInt("protocolVersion") != 1)
                 throw new IllegalArgumentException("Unsupported recording request");
             if (!DashBridgeProvider.SESSIONS.isOwnedBy(caller, SystemClock.elapsedRealtime()))
                 throw new IllegalStateException("Start a RideDeck ride session first");
-            if (request.what == 2) {
+            if (request.what == 2 || request.what == 3) {
                 long now = SystemClock.elapsedRealtime();
-                PreviewFrames.companionPreviewUntil = now + 1500;
+                if (request.what == 2) PreviewFrames.companionPreviewUntil = now + 1500;
                 result.putBoolean("accepted", true);
                 result.putBoolean("recording", RecordingService.capturing);
+                result.putBoolean("starting", RecordingService.running && !RecordingService.capturing && !RecordingService.finalizing);
                 result.putString("message", RecordingService.state);
-                addFrame(result, "rear", PreviewFrames.rear, PreviewFrames.rearAt, now);
-                addFrame(result, "front", PreviewFrames.front, PreviewFrames.frontAt, now);
+                if (request.what == 2) {
+                    addFrame(result, "rear", PreviewFrames.rear, PreviewFrames.rearAt, now);
+                    addFrame(result, "front", PreviewFrames.front, PreviewFrames.frontAt, now);
+                }
                 respond(request, result);
                 return true;
             }

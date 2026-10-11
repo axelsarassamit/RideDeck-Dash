@@ -34,6 +34,13 @@ preview is visible, with one request outstanding. Reply includes
 Use FIT_CENTER to show the entire recorded frame. Preview decoding expires
 1.5 seconds after the last request. Background recording still requires a
 renewed ride lease and the existing power gate.
+
+`what=3` returns the same status fields, plus `starting` (camera startup in
+progress), without JPEGs or enabling preview
+decoding. Use this for a visible main-screen REC indicator; show REC only
+when `recording=true` is freshly confirmed. Do not interpret an active lease
+or an accepted start request as actual recording. Clear stale status after
+three seconds without a reply and stop polling when the host UI is hidden.
 Hosts must not renew for an idle app without an active ride session.
 Missing provider, incompatible protocol, rejected lease and security errors
 must leave normal host functionality available. Debug host APKs are rejected.
