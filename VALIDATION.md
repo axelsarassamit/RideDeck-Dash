@@ -75,3 +75,11 @@ The charger-disconnected plus sixty-seconds-stationary policy passed unit checks
 Rear defaults to locked infinity focus where manual lens control is advertised. Front defaults to supported continuous autofocus. Each camera can instead select approximately 5 metres (0.2 dioptres) or autofocus in Video and storage. Alignment preview and recording share the policy; fixed-focus lenses retain their focus and unsupported manual control falls back to supported autofocus. Settings are included in saved user slots. Actual focus mode and lens distance are sampled in DashFocus device logs. A real road clarity comparison remains unverified.
 
 The first road-focus smoke test confirmed rear AF off with 0.0 dioptres on Xiaomi 14T Pro; front reported fixed focus. It also exposed MP4 finalization hanging after capture requests were aborted before MediaRecorder.stop. Version 0.5.6 keeps frames flowing until recorder finalization, then closes the camera session. The interrupted test files are retained without marking them verified.
+
+## Overlay redesign, 0.6.0
+
+Exported copies always carry the existing RideDeck road mark, including logo-only social presets. Original MP4s remain untouched. Layout uses blue outlined dark cards, separate speed/source, optional telemetry grid and a moving bike map. Portrait and landscape adapt independently, with social safe margins. Marker motion interpolates recorded positions and shortest-angle heading only across accurate, plausible GPS intervals up to six seconds. Missing or inaccurate GPS never produces an invented bike position.
+
+Optional road context uses one bounded OpenStreetMap vector query near the clip start through Overpass, with a seven-day local cache, response limit and timeout. No OSM raster tiles are downloaded for export. It is a limited context map, not turn-by-turn navigation or a full offline road database; longer clips can leave its coverage. Public Overpass is a development dependency and a configured/self-hosted service will be needed for larger deployment. Offline or failed road loading retains a labelled GPS trace. Requests send the approximate ride area, explained in overlay settings.
+
+Animated style preview uses explicitly illustrative telemetry and roads, with no demo data exported into recordings. Real outdoor route motion remains pending outdoor footage at the user request.
