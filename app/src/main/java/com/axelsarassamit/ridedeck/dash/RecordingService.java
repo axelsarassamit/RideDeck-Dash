@@ -31,7 +31,7 @@ public final class RecordingService extends Service {
     public static volatile String audioStatus="Audio off";
     public static volatile long startedAt;
     private android.media.AudioManager audioManager;
-    private boolean communicationRoute;
+    private HeadsetRoute headsetRoute;
     private final List<Track> tracks = new ArrayList<>();
     private LocationManager locations;
     private BufferedWriter route;
@@ -156,7 +156,9 @@ public final class RecordingService extends Service {
     private final Runnable gateTick = new Runnable() {
         @Override public void run() {
             if (!running || stopping) return;
-            if (enforceGate(registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED)))) worker.postDelayed(this, 500);
+            if (enforceGate(registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED)))) {
+                for(Track track:tracks)track.updatePreviewTarget();worker.postDelayed(this, 500);
+            }
         }
     };
     private boolean enforceGate(Intent power) {
@@ -202,7 +204,7 @@ public final class RecordingService extends Service {
         events = null;
         try { unregisterReceiver(battery); } catch (IllegalArgumentException ignored) {}
         if (wake != null && wake.isHeld()) wake.release();
-        if(communicationRoute && Build.VERSION.SDK_INT>=31) audioManager.clearCommunicationDevice(); communicationRoute=false;
+        if(headsetRoute!=null){headsetRoute.close();headsetRoute=null;}
         capturing=false; running=false; state=reason; stopForeground(STOP_FOREGROUND_REMOVE); stopSelf();
     }
     @Override public void onDestroy() {
@@ -215,7 +217,7 @@ public final class RecordingService extends Service {
         final CameraManager manager; final String id, label;
         CameraDevice camera; CameraCaptureSession session; MediaRecorder recorder;
         File current, next; boolean recording; int count; int eis, ois; Size size;
-        int frames;
+        int frames;boolean previewTarget;long previousSensor,windowSensor;int windowFrames,windowGaps;float observedFps;int requestedHeight;
         android.media.ImageReader view;
         Integer appliedEis, appliedOis;
         boolean basicEis, opticalAvailable;
@@ -235,7 +237,8 @@ public final class RecordingService extends Service {
             CameraCharacteristics c = manager.getCameraCharacteristics(id);
             Size[] choices = c.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP).getOutputSizes(MediaRecorder.class);
             size = null;
-            for (Size choice : choices) if (choice.getWidth() == settings.width() && choice.getHeight() == settings.height()) size = choice;
+            requestedHeight="front".equals(label)&&tracks.size()>1&&settings.number("rearPriority",1)==1?720:settings.height();
+            for (Size choice : choices) if (choice.getWidth() == (requestedHeight==1080?1920:1280) && choice.getHeight() == requestedHeight) size = choice;
             if (size == null) throw new IOException(label + " camera has no selected recording resolution");
             int[] modes = c.get(CameraCharacteristics.CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES);
             // Preview stabilization mode also stabilizes video streams on supporting devices.
@@ -244,7 +247,7 @@ public final class RecordingService extends Service {
             int[] optical = c.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION);
             if (optical != null) for (int value : optical) if (value == 1) opticalAvailable = true;
             if (eis == 0 && optical != null) for (int value : optical) ois = Math.max(ois, value);
-            modeKey = "session-v2:" + Build.FINGERPRINT + ":" + id + ":"+settings.height()+"p30:" + tracks.size();
+            modeKey = "session-v3:" + Build.FINGERPRINT + ":" + id + ":"+requestedHeight+"p30:" + tracks.size();
             android.content.SharedPreferences learned = getSharedPreferences("camera-modes", MODE_PRIVATE);
             int knownEis = learned.getInt(modeKey + ":eis", -1), knownOis = learned.getInt(modeKey + ":ois", -1);
             boolean supportedKnown = false;
@@ -256,24 +259,27 @@ public final class RecordingService extends Service {
             recorder = new MediaRecorder();
             boolean withAudio=!"off".equals(settings.text("audio","off")) && ("rear".equals(label)||tracks.size()==1);
             android.media.AudioDeviceInfo chosen=null;
+            boolean bluetooth=false;
             if(withAudio){
                 if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED)throw new IOException("Microphone permission required");
                 audioManager=getSystemService(android.media.AudioManager.class);
                 String desired=settings.text("audio","off");
-                if(!"auto".equals(desired)){for(android.media.AudioDeviceInfo device:audioManager.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS))if(AudioInputs.key(device).equals(desired))chosen=device;
+                if("auto".equals(desired)&&Build.VERSION.SDK_INT>=31&&checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)==PackageManager.PERMISSION_GRANTED){
+                    for(android.media.AudioDeviceInfo device:audioManager.getAvailableCommunicationDevices())if(HeadsetRoute.bluetooth(device)){desired="headset";break;}
+                }
+                bluetooth="headset".equals(desired)||desired.startsWith(android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO+":")||(Build.VERSION.SDK_INT>=31&&desired.startsWith(android.media.AudioDeviceInfo.TYPE_BLE_HEADSET+":"));
+                if(bluetooth){headsetRoute=new HeadsetRoute(audioManager);audioStatus="Connecting headset microphone";chosen=headsetRoute.connect(desired);}
+                else if(!"auto".equals(desired)){for(android.media.AudioDeviceInfo device:audioManager.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS))if(AudioInputs.key(device).equals(desired))chosen=device;
                     if(chosen==null)throw new IOException("Selected microphone disconnected; choose another input");}
-                boolean bluetooth=chosen!=null&&(chosen.getType()==android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO || (Build.VERSION.SDK_INT>=31 && chosen.getType()==android.media.AudioDeviceInfo.TYPE_BLE_HEADSET));
-                if(bluetooth){if(Build.VERSION.SDK_INT<31)throw new IOException("Bluetooth routing requires Android 12 or newer");
-                    android.media.AudioDeviceInfo routeDevice=null;for(android.media.AudioDeviceInfo device:audioManager.getAvailableCommunicationDevices())if(device.getType()==chosen.getType()&&device.getAddress().equals(chosen.getAddress()))routeDevice=device;
-                    if(routeDevice==null||!audioManager.setCommunicationDevice(routeDevice))throw new IOException("Headset communication input unavailable");communicationRoute=true;}
+                preferredAudioKey=chosen==null?null:AudioInputs.key(chosen);
                 recorder.setAudioSource(bluetooth?MediaRecorder.AudioSource.VOICE_COMMUNICATION:settings.number("source",1));
             }
             recorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
             recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
             recorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-            if(withAudio){recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);recorder.setAudioEncodingBitRate(128000);recorder.setAudioSamplingRate(48000);if(chosen!=null&&!recorder.setPreferredDevice(chosen))throw new IOException("Selected microphone routing rejected");}
+            if(withAudio){recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);recorder.setAudioEncodingBitRate(bluetooth?64000:128000);recorder.setAudioSamplingRate(bluetooth?16000:48000);recorder.setAudioChannels(1);if(chosen!=null){if(Build.VERSION.SDK_INT<28)throw new IOException("Selected microphone routing requires Android 9 or newer");if(!recorder.setPreferredDevice(chosen))throw new IOException("Selected microphone routing rejected");}}
             recorder.setVideoSize(size.getWidth(), size.getHeight()); recorder.setVideoFrameRate(30);
-            recorder.setVideoEncodingBitRate(settings.bitrate());
+            recorder.setVideoEncodingBitRate(requestedHeight<settings.height()?Math.min(settings.bitrate(),6000000):settings.bitrate());
             int sensor = c.get(CameraCharacteristics.SENSOR_ORIENTATION);
             int degrees = rotation * 90;
             recorder.setOrientationHint("front".equals(label) ? (sensor + degrees) % 360 : (sensor - degrees + 360) % 360);
@@ -310,7 +316,8 @@ public final class RecordingService extends Service {
             try {
                 Surface target = recorder.getSurface();
                 request = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
-                request.addTarget(target); request.addTarget(view.getSurface());
+                request.addTarget(target);previewTarget=PreviewFrames.enabled||SystemClock.elapsedRealtime()<PreviewFrames.companionPreviewUntil;
+                if(previewTarget)request.addTarget(view.getSurface());
                 CameraCharacteristics characteristics = manager.getCameraCharacteristics(id);
                 CameraFocus.apply(request, characteristics, settings, label);
                 android.util.Range<Integer>[] ranges = characteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
@@ -353,16 +360,31 @@ public final class RecordingService extends Service {
                 } else camera.createCaptureSession(Arrays.asList(target,view.getSurface()), callback, worker);
             } catch (Exception error) { fail(error.getMessage()); }
         }
+        void updatePreviewTarget(){if(session==null||request==null||stopping)return;boolean wanted=PreviewFrames.enabled||SystemClock.elapsedRealtime()<PreviewFrames.companionPreviewUntil;if(wanted==previewTarget)return;
+            try{if(wanted)request.addTarget(view.getSurface());else request.removeTarget(view.getSurface());session.setRepeatingRequest(request.build(),captureCallback,worker);previewTarget=wanted;}catch(CameraAccessException error){fail("Cannot update camera preview");}}
+        String preferredAudioKey;
         Runnable thisTrackAudioCheck(){return ()->{if(!running||stopping||recorder==null)return;
             if(Build.VERSION.SDK_INT>=28){android.media.AudioDeviceInfo actual=recorder.getRoutedDevice();audioStatus=actual==null?"Audio route unavailable":AudioInputs.label(actual);
-                if(actual==null || (!"auto".equals(settings.text("audio","off"))&&!AudioInputs.key(actual).equals(settings.text("audio","off"))))fail("Selected microphone is not the active input");
-                else worker.postDelayed(thisTrackAudioCheck(),2000);
+                if(actual==null || (preferredAudioKey!=null&&!AudioInputs.key(actual).equals(preferredAudioKey)))fail("Selected microphone is not the active input");
+                else if(Build.VERSION.SDK_INT>=29&&recorder.getActiveRecordingConfiguration()!=null&&recorder.getActiveRecordingConfiguration().isClientSilenced())fail("Android silenced the recording microphone; finish the call or other microphone app");
+                else {try{event("audio_"+audioStatus.replace(',','_')+"_peak"+recorder.getMaxAmplitude(),current,null);}catch(IOException error){fail("Cannot save microphone diagnostics");return;}worker.postDelayed(thisTrackAudioCheck(),2000);}
             }
         };}
         private final CameraCaptureSession.CaptureCallback captureCallback = new CameraCaptureSession.CaptureCallback() {
                                 @Override public void onCaptureCompleted(CameraCaptureSession s, CaptureRequest r, TotalCaptureResult result) {
                                     if (events == null || stopping) return;
                                     frames++;
+                                    Long sensorTime=result.get(CaptureResult.SENSOR_TIMESTAMP);
+                                    if(sensorTime!=null){
+                                        if(previousSensor>0&&sensorTime-previousSensor>50000000L){windowGaps++;}
+                                        previousSensor=sensorTime;
+                                        if(windowSensor==0){windowSensor=sensorTime;}
+                                        windowFrames++;
+                                        if(sensorTime-windowSensor>=5000000000L){observedFps=(windowFrames-1)*1000000000f/(sensorTime-windowSensor);
+                                            try{event("cadence_"+String.format(Locale.ROOT,"%.1ffps_%dgaps",observedFps,windowGaps),current,sensorTime);}catch(IOException error){fail("Cannot save camera timing");}
+                                            windowSensor=sensorTime;windowFrames=1;windowGaps=0;updateCameraStatus();
+                                        }
+                                    }
                                     if (frames != 1 && frames != 30 && frames != 90 && frames != 180 && frames != 240) return;
                                     appliedEis = result.get(CaptureResult.CONTROL_VIDEO_STABILIZATION_MODE);
                                     appliedOis = result.get(CaptureResult.LENS_OPTICAL_STABILIZATION_MODE);
@@ -370,8 +392,9 @@ public final class RecordingService extends Service {
                                     updateCameraStatus();
                                     try {
                                         event("frame_"+frames, current, result.get(CaptureResult.SENSOR_TIMESTAMP));
-                                        if (frames == 240 && appliedEis != null && appliedOis != null && (appliedEis > 0 || appliedOis > 0))
+                                        if (frames == 240 && appliedEis != null && appliedOis != null && (appliedEis > 0 || appliedOis > 0)) {
                                             getSharedPreferences("camera-modes", MODE_PRIVATE).edit().putInt(modeKey+":eis",appliedEis).putInt(modeKey+":ois",appliedOis).apply();
+                                        }
                                         if (frames == 90 && Objects.equals(appliedEis, 0) && eis == 2 && basicEis) {
                                             eis = 1; request.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, eis);
                                             session.setRepeatingRequest(request.build(), this, worker);
@@ -401,7 +424,7 @@ public final class RecordingService extends Service {
         }
     }
     private void updateCameraStatus() {
-        cameraStatus = tracks.stream().map(t -> t.label + " "+settings.height()+"p · " +
+        cameraStatus = tracks.stream().map(t -> t.label + " "+t.requestedHeight+"p"+(t.observedFps>0?String.format(Locale.ROOT," · %.1f fps",t.observedFps):"")+" · " +
             (t.appliedEis == null ? "checking stabilization" : t.appliedEis > 0 ? "electronic stabilization" :
             t.appliedOis != null && t.appliedOis > 0 ? "optical stabilization" : "stabilization off"))
             .collect(java.util.stream.Collectors.joining("\n"));

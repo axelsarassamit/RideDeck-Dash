@@ -18,6 +18,8 @@ public final class SettingsActivity extends Activity {
   DashUi.text(this,page,"Video and storage",24);
   DashUi.button(this,page,"Presets",v->new AlertDialog.Builder(this).setTitle("Choose a preset").setItems(new String[]{"Balanced: 720p / 6 Mbps / 128 MB / 8 GB","Clear detail: 1080p / 12 Mbps / 256 MB / 16 GB","Long ride: 720p / 4 Mbps / 64 MB / 4 GB","High quality: 1080p / 16 Mbps / 512 MB / 32 GB"},(d,i)->{settings.preset(i);recreate();}).show());
   choice("Resolution","height",new int[]{720,1080},new String[]{"720p","1080p"},720);
+  choice("Dual camera workload","rearPriority",new int[]{1,0},new String[]{"Rear priority: front 720p, at most 6 Mbps","Same quality on both cameras"},1);
+  DashUi.text(this,page,"Rear priority reduces front-camera encoding load when recording both cameras at 1080p. Rear quality stays at your chosen setting. Hidden previews stop generating camera frames. Actual camera cadence is shown while recording and saved with ride data. Outdoor timing and heat still need validation.",15);
   choice("Video bitrate per camera","bitrate",new int[]{4,6,8,12,16,24},new String[]{"4 Mbps","6 Mbps","8 Mbps","12 Mbps","16 Mbps","24 Mbps"},6);
   choice("Clip size per camera","clip",new int[]{64,128,256,512,1024,2048},new String[]{"64 MB","128 MB","256 MB","512 MB","1 GB","2 GB"},128);
   choice("Recording storage limit","quota",new int[]{2,4,8,16,32,64,128},new String[]{"2 GB","4 GB","8 GB","16 GB","32 GB","64 GB","128 GB"},8);
@@ -30,6 +32,7 @@ public final class SettingsActivity extends Activity {
   choice("Camera view refresh","preview",new int[]{5,10,2},new String[]{"5 fps (balanced)","10 fps (smooth)","2 fps (low power)"},5);
   }
   if(section.equals("audio")){
+  DashUi.text(this,page,"Automatic input uses a connected Bluetooth voice microphone when available, otherwise Android's regular input. Multiple Bluetooth voice devices require a specific selection. Bluetooth playback alone does not prove that a microphone is available. Wired and USB microphones remain selectable. The chosen input is checked during recording.",15);
   DashUi.button(this,page,"Sound check: phone and Bluetooth",v->startActivity(new Intent(this,AudioCheckActivity.class)));
   choice("Export sound preset","audio_cutoff",new int[]{0,50,120,180},new String[]{"Original audio","Natural ride (50 Hz)","Wind rumble reduction (120 Hz)","Voice focus (180 Hz)"},0);
   choice("Custom low-cut frequency","audio_cutoff",new int[]{0,30,50,80,120,180,250},new String[]{"Off","30 Hz","50 Hz","80 Hz","120 Hz","180 Hz","250 Hz"},0);
@@ -46,7 +49,9 @@ public final class SettingsActivity extends Activity {
  void microphones(){
   if(Build.VERSION.SDK_INT>=31 && checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT)!=android.content.pm.PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{android.Manifest.permission.BLUETOOTH_CONNECT},41);return;}
   AudioDeviceInfo[] devices=getSystemService(AudioManager.class).getDevices(AudioManager.GET_DEVICES_INPUTS);AudioInputs.discover(devices);List<String> labels=new ArrayList<>(),keys=new ArrayList<>();labels.add("Off");keys.add("off");labels.add("Automatic input");keys.add("auto");
+  labels.add("Connected Bluetooth headset (any brand)");keys.add("headset");
   for(AudioDeviceInfo device:devices){if(!AudioInputs.selectable(device))continue;labels.add(AudioInputs.label(device));keys.add(AudioInputs.key(device));}
+  if(Build.VERSION.SDK_INT>=31)for(AudioDeviceInfo device:getSystemService(AudioManager.class).getAvailableCommunicationDevices()){if(!HeadsetRoute.bluetooth(device)||keys.contains(AudioInputs.key(device)))continue;labels.add(AudioInputs.label(device));keys.add(AudioInputs.key(device));}
   new AlertDialog.Builder(this).setTitle("Choose recording input").setItems(labels.toArray(new String[0]),(d,i)->{settings.put("audio",keys.get(i));settings.put("audioLabel",labels.get(i));recreate();}).show();
  }
  void rearLenses(){try{
