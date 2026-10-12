@@ -16,19 +16,22 @@ final class PreviewFrames {
   return conversion;
  }
  static ImageReader reader(String label,int sensor,android.os.Handler handler){
-  ImageReader reader=ImageReader.newInstance(640,360,ImageFormat.YUV_420_888,2);
+  return reader(label,sensor,handler,false);
+ }
+ static ImageReader reader(String label,int sensor,android.os.Handler handler,boolean cameraThrottled){
+  ImageReader reader=ImageReader.newInstance(640,360,ImageFormat.YUV_420_888,4);
   final long[] last={0};
+  final byte[] nv21=new byte[640*360*3/2];final int[] pixels=new int[640*360];
   reader.setOnImageAvailableListener(r->{try(Image image=r.acquireLatestImage()){
-   if(image==null || (!enabled && android.os.SystemClock.elapsedRealtime()>=companionPreviewUntil) || android.os.SystemClock.elapsedRealtime()-last[0]<interval)return;
+   if(image==null || (!enabled && android.os.SystemClock.elapsedRealtime()>=companionPreviewUntil) || (!cameraThrottled&&android.os.SystemClock.elapsedRealtime()-last[0]<interval))return;
    last[0]=android.os.SystemClock.elapsedRealtime();
-   int w=image.getWidth(),h=image.getHeight();byte[] nv21=new byte[w*h*3/2];Image.Plane[] planes=image.getPlanes();
+   int w=image.getWidth(),h=image.getHeight();Image.Plane[] planes=image.getPlanes();
    for(int n=0;n<3;n++){ByteBuffer b=planes[n].getBuffer();int rows=n==0?h:h/2,cols=n==0?w:w/2;
     for(int y=0;y<rows;y++)for(int x=0;x<cols;x++){int offset=y*planes[n].getRowStride()+x*planes[n].getPixelStride();
      nv21[n==0?y*w+x:w*h+y*w+x*2+(n==1?1:0)]=b.get(offset);}}
-   ByteArrayOutputStream out=new ByteArrayOutputStream();new YuvImage(nv21,ImageFormat.NV21,w,h,null).compressToJpeg(new Rect(0,0,w,h),82,out);
-   byte[] data=out.toByteArray();Bitmap raw=BitmapFactory.decodeByteArray(data,0,data.length);Matrix m=new Matrix();
-   m.postRotate("front".equals(label)?(sensor+rotation*90)%360:(sensor-rotation*90+360)%360);
-   Bitmap result=Bitmap.createBitmap(raw,0,0,w,h,m,true);if(result!=raw)raw.recycle();
+   int degrees="front".equals(label)?(sensor+rotation*90)%360:(sensor-rotation*90+360)%360;
+   PreviewPixels.convert(nv21,pixels,w,h,degrees);
+   Bitmap result=Bitmap.createBitmap(pixels,degrees==90||degrees==270?h:w,degrees==90||degrees==270?w:h,Bitmap.Config.ARGB_8888);
    if("rear".equals(label)){rear=result;rearAt=android.os.SystemClock.elapsedRealtime();}else {front=result;frontAt=android.os.SystemClock.elapsedRealtime();}message="Live camera view";
   }catch(Exception e){message="Camera view unavailable";}},conversionHandler());return reader;
  }
