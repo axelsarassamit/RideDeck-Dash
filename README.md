@@ -2,6 +2,14 @@
 
 A separate Android dashcam for RideDeck and RideDeck for Yamaha. Package: com.axelsarassamit.ridedeck.dash.
 
+## Road footage stabilization: 0.7.0
+
+Overlay and social exports now offer Off, Gentle, Strong and Maximum image stabilization. Gentle uses 12% zoom, Strong 22%, and Maximum 35%: smoothing trades picture edges for steadier footage. Analysis runs locally on clean originals, tracks road features with OpenCV, rejects unreliable intervals, and bounds translation and rotation inside the crop. Logo and telemetry overlays are added afterward. Originals and audio remain preserved. Gyro correction and rolling-shutter reconstruction are not implemented, and already blurred details cannot be recovered.
+
+Analysis and export require Dash to stay visible, recording stopped, and charger or at least 50% battery. Cancel, leaving or rotation abort unfinished export. Analysis is bounded to 30 minutes / 60,000 frames; use a shorter social range for longer clips. Unsupported decoder output or insufficient tracking features produce an explicit error rather than a falsely stabilized copy. OpenCV is packaged in the app, increasing download size; no video is uploaded for analysis.
+
+Capture requests the most stable supported range ending at 30 fps and supplies stabilization parameters at session creation. Older learned mode choices are rechecked under the new session configuration. Preview conversion runs on a separate thread. Rear-lens selection shows only cameras exposed by Android, with advertised optical/electronic stabilization; preview and recording share the selected lens. Hidden physical camera IDs are diagnostics only. Dual mode still requires an advertised concurrent pair, and a lens unsupported in dual mode is rejected. A better lens must be confirmed on the phone, not inferred from advertising alone.
+
 ## Ride automation and customizable overlay exports: 0.4.1
 
 - Front and rear Camera2 recording, with an explicit single-camera choice when a phone cannot run both.

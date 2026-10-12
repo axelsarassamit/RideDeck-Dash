@@ -85,3 +85,13 @@ Optional road context uses one bounded OpenStreetMap vector query near the clip 
 Animated style preview uses explicitly illustrative telemetry and roads, with no demo data exported into recordings. Real outdoor route motion remains pending outdoor footage at the user request.
 
 The first phone export decoded all 761 video frames and retained the original display rotation. Inspection caught a locale-specific month label and road lookup missing a valid GPS sample just before clip start; 0.6.1 corrects both. Original clips remained in place.
+
+## Outdoor footage review and stabilization, 0.7.0
+
+The user-provided rear overlay recording and an additional exported phone clip were inspected locally. The first-minute sample was approximately 30 fps with no near-identical consecutive frames in the sample; a second clip also had steady timestamps. The outdoor ride's capture log confirmed rear electronic mode 0 / optical mode 1, while front reported electronic mode 2. Hardware mode advertisement alone was therefore not evidence of effective rear electronic stabilization.
+
+An original-signer development build completed a full-length Strong stabilized export from the original outdoor rear clip on Xiaomi 14T Pro. The saved H.264 copy retained portrait framing, audio and newly drawn fixed logo/telemetry overlays. A local feature-tracking comparison of a 40-second section measured roughly 56% lower 95th-percentile horizontal displacement, 71% lower vertical displacement and 52% lower angular displacement. This is a sample-specific image-motion comparison, not a general road-safety or future-ride guarantee. Strong uses 22% zoom and loses edges; existing vibration blur remains.
+
+Twenty-eight unit tests passed, including alternating shake with slow pan, separation at tracking breaks, and crop limits with large motion in portrait. Debug and original-signer release builds and lint passed. The new session-parameter/FPS path recorded and finalized both cameras on the connected phone. These indoor capture checks do not establish improved outdoor native stabilization, thermal endurance or rolling-shutter correction. Follow-up outdoor footage is required for those claims. Private recordings, GPS logs, camera images and comparison scripts are excluded from Git.
+
+The phone exposes one logical rear camera and one front camera, with concurrent group {0,1}. Rear metadata advertises OIS and both electronic stabilization modes, with underlying physical IDs that are not independently enumerated as openable cameras. Lens choices are limited to Android's exposed camera list; diagnostic physical IDs do not imply usable standalone or concurrent recording support.

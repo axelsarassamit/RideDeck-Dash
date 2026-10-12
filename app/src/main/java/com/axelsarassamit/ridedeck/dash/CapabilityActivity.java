@@ -61,6 +61,12 @@ public final class CapabilityActivity extends Activity {
                 String label = facing == null ? "Unknown" : facing == CameraCharacteristics.LENS_FACING_BACK
                     ? "Rear" : facing == CameraCharacteristics.LENS_FACING_FRONT ? "Front" : "External";
                 report.append(label).append(" camera ").append(id).append("\n");
+                if(label.equals("Rear"))report.append(RearLenses.label(c)).append("\n");
+                if(Build.VERSION.SDK_INT>=28)report.append("Physical camera IDs: ").append(c.getPhysicalCameraIds()).append("\n");
+                if(Build.VERSION.SDK_INT>=28)for(String physical:c.getPhysicalCameraIds()){
+                    try{report.append("  Physical ").append(physical).append(": ").append(RearLenses.label(manager.getCameraCharacteristics(physical))).append("\n");}
+                    catch(Exception ignored){report.append("  Physical ").append(physical).append(": metadata unavailable\n");}
+                }
                 report.append("Video stabilization modes: ").append(Arrays.toString(c.get(CameraCharacteristics.CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES))).append("\n");
                 report.append("Optical stabilization modes: ").append(Arrays.toString(c.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION))).append("\n\n");
             }

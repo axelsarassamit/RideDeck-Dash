@@ -13,6 +13,7 @@ public final class SettingsActivity extends Activity {
   DashUi.text(this,page,"Starts once for a new RideDeck session or after GPS confirms at least 8 km/h for 3 seconds while Dash is open. Manual Stop suppresses restart until a new session or a stationary-to-moving transition. Unplugged recording below 50% still stops immediately. Missing GPS does not count as stationary.",15);
   }
   if(section.equals("video")){
+  DashUi.button(this,page,"Rear lens: "+settings.text("rearLensLabel","Automatic main camera"),v->rearLenses());
   DashUi.button(this,page,"Video overlays",v->startActivity(new Intent(this,OverlaySettingsActivity.class)));
   DashUi.text(this,page,"Video and storage",24);
   DashUi.button(this,page,"Presets",v->new AlertDialog.Builder(this).setTitle("Choose a preset").setItems(new String[]{"Balanced: 720p / 6 Mbps / 128 MB / 8 GB","Clear detail: 1080p / 12 Mbps / 256 MB / 16 GB","Long ride: 720p / 4 Mbps / 64 MB / 4 GB","High quality: 1080p / 16 Mbps / 512 MB / 32 GB"},(d,i)->{settings.preset(i);recreate();}).show());
@@ -33,7 +34,7 @@ public final class SettingsActivity extends Activity {
   choice("Microphone processing","source",new int[]{1,5,6,9},new String[]{"Standard microphone","Camera recording","Voice recognition","Unprocessed if supported"},1);
   DashUi.text(this,page,"Audio is embedded in the rear video, or front video in front-only mode. Android chooses the physical capsules within a phone input. A phone + headset mix is not available in this version. Headsets must be connected and exposed as an input. Bluetooth requires Android permission and communication routing; quality may be lower. The dashboard reports the actual routed input.",16);
   }
-  DashUi.text(this,page,"Video targets 30 fps. Dual 1080p and stabilization depend on the phone. Preview is a reduced-resolution alignment view; saved video uses your selected resolution and bitrate. Gyro post-processing and automatic incident detection are not enabled.",16);
+  DashUi.text(this,page,"Video requests the steadiest supported 30 fps camera range. Dual 1080p and hardware stabilization depend on the phone. Preview conversion runs separately from recording. From Recordings, overlay and social exports offer Gentle, Strong and Maximum motion smoothing with extra crop. Originals stay unchanged. Image smoothing cannot remove existing vibration blur or all rolling-shutter distortion. Gyro processing and automatic incident detection are not enabled.",16);
   DashUi.button(this,page,"Back",v->finish());
  }
  void choice(String title,String key,int[] values,String[] labels,int fallback){int current=settings.number(key,fallback),index=0;for(int i=0;i<values.length;i++)if(values[i]==current)index=i;
@@ -44,6 +45,17 @@ public final class SettingsActivity extends Activity {
   for(AudioDeviceInfo device:devices){if(!AudioInputs.selectable(device))continue;labels.add(AudioInputs.label(device));keys.add(AudioInputs.key(device));}
   new AlertDialog.Builder(this).setTitle("Choose recording input").setItems(labels.toArray(new String[0]),(d,i)->{settings.put("audio",keys.get(i));settings.put("audioLabel",labels.get(i));recreate();}).show();
  }
+ void rearLenses(){try{
+  android.hardware.camera2.CameraManager manager=getSystemService(android.hardware.camera2.CameraManager.class);
+  List<String> names=new ArrayList<>(),ids=new ArrayList<>();names.add("Automatic main camera");ids.add("auto");
+  for(String id:manager.getCameraIdList()){
+   android.hardware.camera2.CameraCharacteristics c=manager.getCameraCharacteristics(id);
+   if(!Objects.equals(c.get(android.hardware.camera2.CameraCharacteristics.LENS_FACING),android.hardware.camera2.CameraCharacteristics.LENS_FACING_BACK))continue;
+   names.add(RearLenses.label(c));ids.add(id);
+  }
+  new AlertDialog.Builder(this).setTitle("Rear lenses exposed by Android").setItems(names.toArray(new String[0]),(dialog,index)->{settings.put("rearLens",ids.get(index));settings.put("rearLensLabel",names.get(index));settings.put("preset","Custom");recreate();}).show();
+  Toast.makeText(this,"Rear + front availability depends on the phone. Unsupported pairs stop before recording.",Toast.LENGTH_LONG).show();
+ }catch(Exception error){Toast.makeText(this,"Cannot inspect rear lenses",Toast.LENGTH_LONG).show();}}
  public void onRequestPermissionsResult(int r,String[] p,int[] g){super.onRequestPermissionsResult(r,p,g);if(r==41)microphonesWithoutPrompt();}
  void microphonesWithoutPrompt(){if(Build.VERSION.SDK_INT<31||checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT)==android.content.pm.PackageManager.PERMISSION_GRANTED)microphones();else Toast.makeText(this,"Bluetooth permission denied. Phone and wired inputs remain available on reopening settings.",Toast.LENGTH_LONG).show();}
 }

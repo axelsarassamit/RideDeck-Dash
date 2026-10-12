@@ -12,9 +12,10 @@ final class AlignmentPreview {
  AlignmentPreview(Context c){context=c;thread.start();handler=new Handler(thread.getLooper());}
  void start(String mode){handler.post(()->{try{
   if(context.checkSelfPermission(android.Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED)return;
-  CameraManager manager=context.getSystemService(CameraManager.class);List<String> ids=new ArrayList<>();
+  CameraManager manager=context.getSystemService(CameraManager.class);List<String> ids=new ArrayList<>();String selectedRear="front".equals(mode)?null:RearLenses.selected(manager,new DashSettings(context));
   for(String id:manager.getCameraIdList()){Integer facing=manager.getCameraCharacteristics(id).get(CameraCharacteristics.LENS_FACING);
    boolean rear=Objects.equals(facing,CameraCharacteristics.LENS_FACING_BACK),front=Objects.equals(facing,CameraCharacteristics.LENS_FACING_FRONT);
+   if(rear&&!id.equals(selectedRear))continue;
    if((rear&&!"front".equals(mode)||front&&!"rear".equals(mode))&&!ids.stream().anyMatch(old->{try{return Objects.equals(manager.getCameraCharacteristics(old).get(CameraCharacteristics.LENS_FACING),facing);}catch(Exception e){return false;}}))ids.add(id);}
   if(ids.size()>1 && (Build.VERSION.SDK_INT<30 || manager.getConcurrentCameraIds().stream().noneMatch(s->s.containsAll(ids))))throw new Exception("Dual view unavailable; choose one camera");
   for(String id:ids){CameraCharacteristics c=manager.getCameraCharacteristics(id);String label=Objects.equals(c.get(CameraCharacteristics.LENS_FACING),CameraCharacteristics.LENS_FACING_BACK)?"rear":"front";

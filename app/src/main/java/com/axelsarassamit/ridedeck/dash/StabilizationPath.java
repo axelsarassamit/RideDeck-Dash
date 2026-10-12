@@ -1,0 +1,31 @@
+package com.axelsarassamit.ridedeck.dash;
+
+/** Bounded, centered motion smoothing. Rejected tracking intervals are isolated segments. */
+final class StabilizationPath {
+    static float[][] smooth(long[] times, float[][] motion, int[] segments, int strength, int width, int height) {
+        float zoom = zoom(strength);
+        float[][] result = new float[times.length][3];
+        double sigma = strength == 1 ? 180000 : strength == 2 ? 350000 : 600000;
+        for (int i = 0; i < times.length; i++) {
+            double[] sum = new double[3]; double weights = 0;
+            for (int j = i; j >= 0 && times[i] - times[j] < sigma * 3 && segments[j] == segments[i]; j--) {
+                double weight = Math.exp(-Math.pow((times[j]-times[i])/sigma,2)/2);
+                weights += weight; for (int k=0;k<3;k++) sum[k] += motion[j][k]*weight;
+            }
+            for (int j = i+1; j < times.length && times[j] - times[i] < sigma * 3 && segments[j] == segments[i]; j++) {
+                double weight = Math.exp(-Math.pow((times[j]-times[i])/sigma,2)/2);
+                weights += weight; for (int k=0;k<3;k++) sum[k] += motion[j][k]*weight;
+            }
+            float angle = clamp((float)(sum[2]/weights-motion[i][2]), (float)Math.toRadians(strength+1));
+            double sin = Math.abs(Math.sin(angle)), cos = Math.abs(Math.cos(angle));
+            float xLimit = (float)Math.max(0, (zoom-cos-(double)height/width*sin)*width/2/zoom);
+            float yLimit = (float)Math.max(0, (zoom-cos-(double)width/height*sin)*height/2/zoom);
+            result[i][0] = clamp((float)(sum[0]/weights-motion[i][0]), xLimit);
+            result[i][1] = clamp((float)(sum[1]/weights-motion[i][1]), yLimit);
+            result[i][2] = angle;
+        }
+        return result;
+    }
+    static float zoom(int strength) { return strength == 1 ? 1.12f : strength == 2 ? 1.22f : 1.35f; }
+    static float clamp(float value,float limit) { return Math.max(-limit,Math.min(limit,value)); }
+}

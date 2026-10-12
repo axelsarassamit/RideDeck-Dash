@@ -132,11 +132,13 @@ public final class RecordingService extends Service {
                 if (Objects.equals(facing, CameraCharacteristics.LENS_FACING_FRONT) && front == null) front = camera;
             }
             if ("dual".equals(mode)) {
+                rear = RearLenses.selected(manager,settings);
                 if (rear == null || front == null || Build.VERSION.SDK_INT < 30) throw new IOException("Dual camera recording unavailable. Select one camera.");
                 boolean supported = false;
                 for (Set<String> group : manager.getConcurrentCameraIds()) if (group.contains(rear) && group.contains(front)) supported = true;
                 if (!supported) throw new IOException("Phone does not advertise simultaneous front and rear cameras.");
             }
+            if(!"dual".equals(mode)&&!"front".equals(mode))rear=RearLenses.selected(manager,settings);
             if (!"front".equals(mode)) tracks.add(new Track(manager, rear, "rear"));
             if (!"rear".equals(mode)) tracks.add(new Track(manager, front, "front"));
             for (Track track : tracks) track.prepare();
@@ -242,7 +244,7 @@ public final class RecordingService extends Service {
             int[] optical = c.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION);
             if (optical != null) for (int value : optical) if (value == 1) opticalAvailable = true;
             if (eis == 0 && optical != null) for (int value : optical) ois = Math.max(ois, value);
-            modeKey = Build.FINGERPRINT + ":" + id + ":"+settings.height()+"p30:" + tracks.size();
+            modeKey = "session-v2:" + Build.FINGERPRINT + ":" + id + ":"+settings.height()+"p30:" + tracks.size();
             android.content.SharedPreferences learned = getSharedPreferences("camera-modes", MODE_PRIVATE);
             int knownEis = learned.getInt(modeKey + ":eis", -1), knownOis = learned.getInt(modeKey + ":ois", -1);
             boolean supportedKnown = false;
@@ -307,16 +309,22 @@ public final class RecordingService extends Service {
         void configure() {
             try {
                 Surface target = recorder.getSurface();
-                camera.createCaptureSession(Arrays.asList(target,view.getSurface()), new CameraCaptureSession.StateCallback() {
+                request = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
+                request.addTarget(target); request.addTarget(view.getSurface());
+                CameraCharacteristics characteristics = manager.getCameraCharacteristics(id);
+                CameraFocus.apply(request, characteristics, settings, label);
+                android.util.Range<Integer>[] ranges = characteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
+                android.util.Range<Integer> fps = null;
+                if (ranges != null) for (android.util.Range<Integer> range : ranges)
+                    if (range.getUpper() == 30 && (fps == null || range.getLower() > fps.getLower())) fps = range;
+                if (fps != null) request.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fps);
+                request.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, eis);
+                request.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, ois);
+                CameraCaptureSession.StateCallback callback = new CameraCaptureSession.StateCallback() {
                     @Override public void onConfigured(CameraCaptureSession s) {
                         if (!running || stopping) { s.close(); return; }
                         session = s;
                         try {
-                            request = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
-                            request.addTarget(target); request.addTarget(view.getSurface());
-                            CameraFocus.apply(request, manager.getCameraCharacteristics(id), settings, label);
-                            request.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, eis);
-                            request.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, ois);
                             session.setRepeatingRequest(request.build(), captureCallback, worker);
                             recorder.start(); recording = true; event("file_started",current,null);
                             if(!"off".equals(settings.text("audio","off")) && ("rear".equals(label)||tracks.size()==1)){
@@ -334,7 +342,15 @@ public final class RecordingService extends Service {
                         } catch (Exception error) { fail(label + ": " + error.getMessage()); }
                     }
                     @Override public void onConfigureFailed(CameraCaptureSession s) { s.close(); fail(label + " recording configuration unavailable"); }
-                }, worker);
+                };
+                if (Build.VERSION.SDK_INT >= 28) {
+                    android.hardware.camera2.params.SessionConfiguration configuration = new android.hardware.camera2.params.SessionConfiguration(
+                        android.hardware.camera2.params.SessionConfiguration.SESSION_REGULAR,
+                        Arrays.asList(new android.hardware.camera2.params.OutputConfiguration(target), new android.hardware.camera2.params.OutputConfiguration(view.getSurface())),
+                        command -> worker.post(command), callback);
+                    configuration.setSessionParameters(request.build());
+                    camera.createCaptureSession(configuration);
+                } else camera.createCaptureSession(Arrays.asList(target,view.getSurface()), callback, worker);
             } catch (Exception error) { fail(error.getMessage()); }
         }
         Runnable thisTrackAudioCheck(){return ()->{if(!running||stopping||recorder==null)return;

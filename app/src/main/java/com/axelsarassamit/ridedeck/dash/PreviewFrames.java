@@ -10,6 +10,11 @@ final class PreviewFrames {
  static volatile boolean enabled;
  static volatile long companionPreviewUntil, rearAt, frontAt;
  static volatile String message="Tap Camera view to align your cameras";
+ private static android.os.Handler conversion;
+ private static synchronized android.os.Handler conversionHandler(){
+  if(conversion==null){android.os.HandlerThread thread=new android.os.HandlerThread("DashPreviewConversion");thread.start();conversion=new android.os.Handler(thread.getLooper());}
+  return conversion;
+ }
  static ImageReader reader(String label,int sensor,android.os.Handler handler){
   ImageReader reader=ImageReader.newInstance(640,360,ImageFormat.YUV_420_888,2);
   final long[] last={0};
@@ -25,6 +30,6 @@ final class PreviewFrames {
    m.postRotate("front".equals(label)?(sensor+rotation*90)%360:(sensor-rotation*90+360)%360);
    Bitmap result=Bitmap.createBitmap(raw,0,0,w,h,m,true);if(result!=raw)raw.recycle();
    if("rear".equals(label)){rear=result;rearAt=android.os.SystemClock.elapsedRealtime();}else {front=result;frontAt=android.os.SystemClock.elapsedRealtime();}message="Live camera view";
-  }catch(Exception e){message="Camera view unavailable";}},handler);return reader;
+  }catch(Exception e){message="Camera view unavailable";}},conversionHandler());return reader;
  }
 }
