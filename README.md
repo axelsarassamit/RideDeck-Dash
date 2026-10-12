@@ -70,3 +70,8 @@ Menu > Social video presets prepares TikTok, Instagram and Facebook exports. Pur
 Menu > My saved settings provides three named slots for the complete recording, audio, camera, storage, automation, overlay and social configuration. Loading is confirmed and blocked while recording/finalizing. Capture changes apply to the next recording. Slots are stored separately.
 
 See [social preset choices and limits](docs/SOCIAL_PRESETS.md).
+## Sound routing checks and export low-cut, 0.7.1
+
+Menu > Sound check records eight-second local phone, Bluetooth voice or concurrent samples. It checks actual routes, Android silencing and signal, preserves the original WAVs and offers 50 Hz and 120 Hz phone comparisons. Saving copies to Downloads is explicit. These are foreground diagnostics, not production live video mixing.
+
+Microphones and audio now provides export presets Original, Natural ride (50 Hz), Wind rumble reduction (120 Hz) and Voice focus (180 Hz), plus custom low-cut choices. The filter runs on exported video copies only. Stronger settings remove more engine bass. Filtering cannot recover clipped audio or remove every kind of wind noise. Original is the default. Phone/headset live mixing remains pending synchronization, capture-service integration and outdoor validation.

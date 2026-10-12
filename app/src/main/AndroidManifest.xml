@@ -2,6 +2,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -25,6 +26,7 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/update_paths" />
         </provider>
         <activity android:name=".CapabilityActivity" android:exported="false" />
+        <activity android:name=".AudioCheckActivity" android:exported="false" />
         <activity android:name=".SocialSettingsActivity" android:exported="false" />
         <activity android:name=".OverlayPreviewActivity" android:exported="false" />
         <activity android:name=".OverlaySettingsActivity" android:exported="false" />

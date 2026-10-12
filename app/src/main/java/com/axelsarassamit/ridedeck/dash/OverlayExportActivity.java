@@ -28,7 +28,7 @@ if(strength>0){
    transformer=builder.addListener(new Transformer.Listener(){
     @Override public void onCompleted(Composition composition,ExportResult result){completed=true;handler.removeCallbacks(tick);progress.setText("Saving to gallery");save(clip);}
     @Override public void onError(Composition composition,ExportResult result,ExportException error){handler.removeCallbacks(tick);progress.setText("Export failed: "+error.getMessage());if(output!=null)output.delete();}
-   }).build();EditedMediaItem item=new EditedMediaItem.Builder(media.build()).setRemoveAudio(social&&settings.number("social_mute",0)==1).setEffects(new Effects(Collections.emptyList(),effects)).build();transformer.start(item,output.getPath());handler.post(tick);
+   }).build();EditedMediaItem item=new EditedMediaItem.Builder(media.build()).setRemoveAudio(social&&settings.number("social_mute",0)==1).setEffects(new Effects(settings.number("audio_cutoff",0)>0?Collections.singletonList(new WindAudioProcessor(settings.number("audio_cutoff",0))):Collections.emptyList(),effects)).build();transformer.start(item,output.getPath());handler.post(tick);
   }catch(Exception e){progress.setText(e.getMessage());}
  }
  boolean power(){Intent b=registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));return b!=null&&RecordingGate.evaluate(b.getIntExtra(BatteryManager.EXTRA_PLUGGED,0)!=0,RecordingGate.batteryPercent(b.getIntExtra(BatteryManager.EXTRA_LEVEL,-1),b.getIntExtra(BatteryManager.EXTRA_SCALE,-1)),true,false)==RecordingGate.Result.ALLOWED;}
