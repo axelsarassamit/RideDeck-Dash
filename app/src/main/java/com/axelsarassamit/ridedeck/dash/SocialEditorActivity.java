@@ -20,11 +20,14 @@ public final class SocialEditorActivity extends Activity {
     File clip; long duration; DashSettings settings; ExoPlayer player; PlayerView preview;
     LinearLayout controls; TextView status, rangeLabel; SeekBar start, end;
     VideoStabilizer stabilization; volatile boolean cancelled; boolean analyzing;
-    long[] appliedRange; int generation;
+    long[] appliedRange; volatile int generation; int editorStrength, restoredStart=-1,restoredEnd=-1;
+    Button export; final Handler handler=new Handler(Looper.getMainLooper());
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        if(state!=null){editorStrength=state.getInt("strength",0);restoredStart=state.getInt("draftStart",-1);restoredEnd=state.getInt("draftEnd",-1);}
         try {
+            if(RecordingService.running||RecordingService.finalizing)throw new IOException("Stop recording before editing a clip");
             clip = new File(getIntent().getStringExtra("clip"));
             if (!clip.getCanonicalPath().startsWith(new ClipStore(this).root().getCanonicalPath()+File.separator)
                     || !ClipStore.finalized(clip)) throw new IOException("Select a finalized recording");
@@ -61,7 +64,12 @@ public final class SocialEditorActivity extends Activity {
     }
     @Override protected void onResume() {
         super.onResume(); if (controls == null) return;
-        settings = new DashSettings(this,true); stabilization = null; generation++; buildControls(); prepare();
+        DashSettings base=new DashSettings(this,true);Map<String,Object> values=new HashMap<>(base.snapshot);
+        values.put("export_stabilization",editorStrength);
+        try{SocialProfile.range(duration,base.number("social_start",0),base.number("social_length",15));}
+        catch(IllegalArgumentException error){values.put("social_start",0);values.put("social_length",15);}
+        settings = new DashSettings(this,values); stabilization = null; generation++; buildControls(); prepare();
+        handler.post(recordingGuard);
     }
     void buildControls() {
         controls.removeAllViews(); DashUi.text(this,controls,"RideDeck · Video editor",24);
@@ -71,18 +79,21 @@ public final class SocialEditorActivity extends Activity {
         try { selected=SocialProfile.range(duration,settings.number("social_start",0),settings.number("social_length",15)); }
         catch (IllegalArgumentException error) { selected=new long[]{0,Math.min(duration,15000)}; }
         rangeLabel=DashUi.text(this,controls,"",16);
-        start=slider("In point",(int)(selected[0]/1000)); end=slider("Out point",(int)Math.ceil(selected[1]/1000.0)); updateRange();
+        start=slider("In point",restoredStart>=0?restoredStart:(int)(selected[0]/1000)); end=slider("Out point",restoredEnd>=0?restoredEnd:(int)Math.ceil(selected[1]/1000.0));restoredStart=restoredEnd=-1; updateRange();
+        DashUi.button(this,controls,"Set in point at playhead",v->{if(player!=null&&appliedRange!=null)start.setProgress((int)((appliedRange[0]+player.getCurrentPosition())/1000));});
+        DashUi.button(this,controls,"Set out point at playhead",v->{if(player!=null&&appliedRange!=null)end.setProgress((int)Math.ceil((appliedRange[0]+player.getCurrentPosition())/1000.0));});
         DashUi.button(this,controls,"Apply trim & replay",v->{
             if (analyzing) return;
             if (end.getProgress()<=start.getProgress()) { status.setText("Out point must be after the in point"); return; }
             DashSettings editable=new DashSettings(this); editable.put("social_start",start.getProgress());
             editable.put("social_length",end.getProgress()-start.getProgress());
-            settings=new DashSettings(this,true); stabilization=null; generation++; prepare();
+            Map<String,Object> recipe=new HashMap<>(new DashSettings(this,true).snapshot);recipe.put("export_stabilization",editorStrength);settings=new DashSettings(this,recipe); stabilization=null; generation++; prepare();
         });
         DashUi.button(this,controls,"Format, framing, sound & overlays",v->{if(!analyzing)startActivity(new Intent(this,SocialSettingsActivity.class).putExtra("clip",clip.getPath()).putExtra("fromEditor",true));});
-        DashUi.button(this,controls,"Preview stabilization",v->{if(analyzing)return;new AlertDialog.Builder(this).setTitle("Preview stabilization").setItems(new String[]{"Off · full view","Gentle · 12% zoom","Strong · 22% zoom","Maximum · 35% zoom"},(d,strength)->analyze(strength)).show();});
-        DashUi.button(this,controls,"Create edited copy",v->{
+        DashUi.button(this,controls,"Preview stabilization · experimental",v->{if(analyzing||appliedRange==null)return;new AlertDialog.Builder(this).setTitle("Experimental stabilization preview").setItems(new String[]{"Off · full view","Gentle · 12% zoom","Strong · 22% zoom","Maximum · 35% zoom"},(d,strength)->analyze(strength)).show();});
+        export=DashUi.button(this,controls,"Create edited copy",v->{
             if(analyzing)return;
+            if(appliedRange==null||RecordingService.running||RecordingService.finalizing){status.setText("Stop recording and apply a valid trim before exporting");return;}
             if(start.getProgress()*1000L!=appliedRange[0] || Math.min(duration,end.getProgress()*1000L)!=appliedRange[1]) {
                 status.setText("Apply your trim before exporting"); return;
             }
@@ -103,8 +114,9 @@ public final class SocialEditorActivity extends Activity {
     void updateRange(){rangeLabel.setText("Trim · "+start.getProgress()+"s to "+Math.min(duration/1000.0,end.getProgress())+"s");}
     void prepare() {
         try {
+            if(RecordingService.running||RecordingService.finalizing)throw new IOException("Stop recording before previewing video");
             appliedRange=SocialProfile.range(duration,settings.number("social_start",0),settings.number("social_length",15));
-            if(player!=null){preview.setPlayer(null);player.release();}
+            releasePlayer();
             player=new ExoPlayer.Builder(this).build(); preview.setPlayer(player);
             player.addListener(new Player.Listener(){@Override public void onPlayerError(PlaybackException error){status.setText("Preview failed: "+error.getErrorCodeName());}});
             player.setVideoEffects(SocialEffects.create(this,clip,settings,appliedRange[0]*1000,stabilization,new OverlayRoads(),false));
@@ -113,13 +125,15 @@ public final class SocialEditorActivity extends Activity {
                 new MediaItem.ClippingConfiguration.Builder().setStartPositionMs(appliedRange[0]).setEndPositionMs(appliedRange[1]).build()).build());
             player.setRepeatMode(Player.REPEAT_MODE_ONE);player.prepare();
             preview.hideController();
-            status.setText(stabilization==null?"Framing + data preview · stabilization not applied":"Stabilized preview · same correction as export");
-        } catch(Exception error){status.setText("Preview unavailable: "+error.getMessage());}
+            export.setEnabled(true);
+            status.setText(stabilization==null?(editorStrength==0?"Framing + data preview · stabilization off":"Framing + data preview · export stabilization not previewed"):"Experimental stabilized preview · same correction as export");
+        } catch(Exception error){appliedRange=null;export.setEnabled(false);releasePlayer();status.setText("Preview unavailable: "+error.getMessage());}
     }
     void analyze(int strength) {
         if(RecordingService.running||RecordingService.finalizing){status.setText("Stop recording before analyzing video");return;}
         if(!power()){status.setText("Connect charger or charge to 50% before analyzing video");return;}
         new DashSettings(this).put("export_stabilization",strength);
+        editorStrength=strength;
         Map<String,Object> values=new HashMap<>(settings.snapshot);values.put("export_stabilization",strength);settings=new DashSettings(this,values);
         if(strength==0){stabilization=null;prepare();return;}
         analyzing=true; if(player!=null)player.pause(); final int request=++generation;
@@ -129,9 +143,12 @@ public final class SocialEditorActivity extends Activity {
             VideoStabilizer result=VideoStabilizer.analyze(clip,from,to,strength,()->cancelled||request!=generation||!power()||RecordingService.running||RecordingService.finalizing,
                 percent->runOnUiThread(()->{if(request==generation&&!cancelled)status.setText("Analyzing movement · "+percent+"%");}));
             runOnUiThread(()->{if(cancelled||request!=generation)return;analyzing=false;stabilization=result;prepare();});
-        }catch(Exception error){runOnUiThread(()->{if(cancelled||request!=generation)return;analyzing=false;status.setText("Analysis stopped: "+error.getMessage());});}},"DashEditorAnalysis").start();
+        }catch(Exception error){runOnUiThread(()->{if(cancelled||request!=generation)return;analyzing=false;editorStrength=0;Map<String,Object> safe=new HashMap<>(settings.snapshot);safe.put("export_stabilization",0);settings=new DashSettings(this,safe);stabilization=null;status.setText("Analysis stopped: "+error.getMessage()+". Export stabilization is off.");});}},"DashEditorAnalysis").start();
     }
     boolean power(){Intent b=registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));return b!=null&&RecordingGate.evaluate(b.getIntExtra(BatteryManager.EXTRA_PLUGGED,0)!=0,RecordingGate.batteryPercent(b.getIntExtra(BatteryManager.EXTRA_LEVEL,-1),b.getIntExtra(BatteryManager.EXTRA_SCALE,-1)),true,false)==RecordingGate.Result.ALLOWED;}
-    @Override protected void onStop(){generation++;analyzing=false;if(player!=null)player.pause();super.onStop();}
-    @Override protected void onDestroy(){cancelled=true;generation++;if(player!=null){preview.setPlayer(null);player.release();}super.onDestroy();}
+    void releasePlayer(){if(player!=null){preview.setPlayer(null);player.release();player=null;}}
+    final Runnable recordingGuard=new Runnable(){public void run(){if(RecordingService.running||RecordingService.finalizing){generation++;analyzing=false;releasePlayer();appliedRange=null;export.setEnabled(false);status.setText("Preview stopped to prioritize recording. Return after the ride to edit.");return;}handler.postDelayed(this,500);}};
+    @Override protected void onSaveInstanceState(Bundle state){state.putInt("strength",editorStrength);if(start!=null&&end!=null){state.putInt("draftStart",start.getProgress());state.putInt("draftEnd",end.getProgress());}super.onSaveInstanceState(state);}
+    @Override protected void onStop(){generation++;if(analyzing)editorStrength=0;analyzing=false;handler.removeCallbacksAndMessages(null);releasePlayer();super.onStop();}
+    @Override protected void onDestroy(){cancelled=true;generation++;releasePlayer();super.onDestroy();}
 }

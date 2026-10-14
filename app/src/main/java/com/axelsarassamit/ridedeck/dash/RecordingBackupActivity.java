@@ -21,9 +21,9 @@ public final class RecordingBackupActivity extends Activity {
         LinearLayout page=DashUi.page(this);ScrollView scroll=new ScrollView(this);scroll.addView(page);setContentView(scroll);
         DashUi.text(this,page,"Back up recordings",26);
         DashUi.text(this,page,"Copy complete originals that overlap this local time window, plus their ride logs. Originals stay in Dash. Copies may include footage before and after the selected times.",16);
-        day=input(page,"Date · yyyy-MM-dd",new SimpleDateFormat("yyyy-MM-dd",Locale.ROOT).format(new Date()));
-        from=input(page,"From · HH:mm","00:00");to=input(page,"Until · HH:mm","23:59");
-        rear=new CheckBox(this);rear.setText("Rear camera only");rear.setTextColor(DashUi.WHITE);rear.setChecked(true);page.addView(rear);
+        day=input(page,"Date · yyyy-MM-dd",state==null?new SimpleDateFormat("yyyy-MM-dd",Locale.ROOT).format(new Date()):state.getString("day"));
+        from=input(page,"From · HH:mm",state==null?"00:00":state.getString("from"));to=input(page,"Until · HH:mm",state==null?"23:59":state.getString("to"));
+        rear=new CheckBox(this);rear.setText("Rear camera only");rear.setTextColor(DashUi.WHITE);rear.setChecked(state==null||state.getBoolean("rear",true));page.addView(rear);
         status=DashUi.text(this,page,"Choose the window, then save a local copy.",16);
         save=DashUi.button(this,page,"Save originals and logs",v->backup());
         DashUi.button(this,page,"Back / cancel",v->finish());
@@ -32,6 +32,8 @@ public final class RecordingBackupActivity extends Activity {
     void backup(){
         if(Build.VERSION.SDK_INT<29){status.setText("Local backup requires Android 10 or newer");return;}
         if(RecordingService.running||RecordingService.finalizing){status.setText("Stop recording before backing up originals");return;}
+        if(!power()){status.setText("Connect charger or charge to 50% before backup");return;}
+        cancelled=false;
         final long start,end;final boolean rearOnly=rear.isChecked();
         try{SimpleDateFormat parser=new SimpleDateFormat("yyyy-MM-dd HH:mm",Locale.ROOT);parser.setLenient(false);start=parse(parser,day.getText()+" "+from.getText());end=parse(parser,day.getText()+" "+to.getText());if(end<=start)throw new IllegalArgumentException();}
         catch(Exception error){status.setText("Enter a valid date and a later end time, for example 2026-10-13, 13:57, 16:51");return;}
@@ -39,9 +41,9 @@ public final class RecordingBackupActivity extends Activity {
         new Thread(()->{try{
             List<File> chosen=new ArrayList<>();Set<File> rides=new LinkedHashSet<>();long bytes=0;JSONArray manifest=new JSONArray();
             for(File clip:new ClipStore(this).clips()){
-                if(cancelled)throw new IOException("Backup cancelled");
+                if(cancelled||RecordingService.running||RecordingService.finalizing||!power())throw new IOException("Backup cancelled or recording/power state changed");
                 if(!ClipStore.finalized(clip)||rearOnly&&!clip.getName().startsWith("rear-"))continue;
-                long finish=clip.lastModified();if(finish<start)continue;
+                long finish=clip.lastModified();if(finish<=start)continue;
                 long duration=0;MediaMetadataRetriever reader=new MediaMetadataRetriever();
                 try{reader.setDataSource(clip.getPath());duration=Long.parseLong(reader.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION));}finally{reader.release();}
                 if(finish-duration>=end)continue;
@@ -64,9 +66,12 @@ public final class RecordingBackupActivity extends Activity {
         if(Build.VERSION.SDK_INT<29)throw new IOException("Local backup requires Android 10 or newer");
         ContentValues values=new ContentValues();values.put(MediaStore.MediaColumns.DISPLAY_NAME,name);values.put(MediaStore.MediaColumns.MIME_TYPE,type);values.put(MediaStore.MediaColumns.RELATIVE_PATH,folder);values.put(MediaStore.MediaColumns.IS_PENDING,1);
         Uri uri=getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,values);if(uri==null)throw new IOException("Downloads unavailable");
-        try{try(OutputStream out=getContentResolver().openOutputStream(uri)){if(out==null)throw new IOException("Downloads unavailable");byte[] buffer=new byte[65536];int count;while((count=in.read(buffer))!=-1){if(cancelled||RecordingService.running||RecordingService.finalizing)throw new IOException("Backup interrupted");out.write(buffer,0,count);}}
+        try{try(OutputStream out=getContentResolver().openOutputStream(uri)){if(out==null)throw new IOException("Downloads unavailable");byte[] buffer=new byte[65536];int count;long nextPowerCheck=0;while((count=in.read(buffer))!=-1){if(cancelled||RecordingService.running||RecordingService.finalizing)throw new IOException("Backup interrupted");long now=SystemClock.elapsedRealtime();if(now>=nextPowerCheck){if(!power())throw new IOException("Connect charger or charge to 50% to continue backup");nextPowerCheck=now+500;}out.write(buffer,0,count);}}
             values.clear();values.put(MediaStore.MediaColumns.IS_PENDING,0);getContentResolver().update(uri,values,null,null);
         }catch(Exception error){getContentResolver().delete(uri,null,null);throw new IOException(error.getMessage(),error);}
     }
+    boolean power(){Intent b=registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));return b!=null&&RecordingGate.evaluate(b.getIntExtra(BatteryManager.EXTRA_PLUGGED,0)!=0,RecordingGate.batteryPercent(b.getIntExtra(BatteryManager.EXTRA_LEVEL,-1),b.getIntExtra(BatteryManager.EXTRA_SCALE,-1)),true,false)==RecordingGate.Result.ALLOWED;}
+    @Override protected void onStop(){cancelled=true;super.onStop();}
+    @Override protected void onSaveInstanceState(Bundle state){state.putString("day",day.getText().toString());state.putString("from",from.getText().toString());state.putString("to",to.getText().toString());state.putBoolean("rear",rear.isChecked());super.onSaveInstanceState(state);}
     @Override protected void onDestroy(){cancelled=true;super.onDestroy();}
 }

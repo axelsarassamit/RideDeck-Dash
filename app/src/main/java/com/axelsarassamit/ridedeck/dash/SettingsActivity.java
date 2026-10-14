@@ -28,7 +28,7 @@ public final class SettingsActivity extends Activity {
   choice("Stabilization","stabilization",new int[]{1,0},new String[]{"Best verified available","Off"},1);
   choice("Rear camera focus","rearFocus",new int[]{1,2,0},new String[]{"Road: distant focus locked","Road: approximately 5 metres locked","Continuous autofocus"},1);
   choice("Front camera focus","frontFocus",new int[]{0,1,2},new String[]{"Continuous autofocus","Road: distant focus locked","Road: approximately 5 metres locked"},0);
-  DashUi.text(this,page,"Road focus keeps nearby mirrors and screens from pulling focus. Rear camera defaults to distant focus; front camera keeps autofocus for rider footage. Preview and recording use the same setting. Fixed-focus cameras keep their built-in focus. Cameras without manual focus use supported autofocus instead. Distance accuracy depends on the lens; check the road in the preview before riding.",16);
+  DashUi.text(this,page,"Road focus keeps nearby mirrors and screens from pulling focus. Rear camera defaults to distant focus; front camera keeps autofocus for rider footage. Preview and recording use the same setting. Fixed-focus cameras keep their built-in focus. If a camera cannot lock focus, Dash asks you to select another lens or explicitly choose autofocus. Distance accuracy depends on the lens; check the road in the preview before riding.",16);
   choice("Camera view refresh","preview",new int[]{5,10,2},new String[]{"5 fps (balanced)","10 fps (smooth)","2 fps (low power)"},5);
   }
   if(section.equals("audio")){

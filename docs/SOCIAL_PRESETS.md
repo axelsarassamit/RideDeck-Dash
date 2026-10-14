@@ -1,12 +1,12 @@
 # Social video export
 
-## Video editor (0.8.0)
+## Video editor (0.8.1)
 
 Choose a clip's Social video export action to open the playable editor. Portrait uses a preview above the controls; landscape places them side by side. Set the in/out points, apply the trim, then replay that section. Format, framing, sound and overlay choices remain available through the presets screen, including the three saved app settings slots.
 
-Preview stabilization analyzes the selected section before showing the corrected video. Off, Gentle, Strong and Maximum remain selectable. The editor and export share framing and telemetry effects. The preview shows recorded audio or mute; export-only wind filtering and downloaded road context can differ. Export freezes the chosen settings and writes a separate gallery copy. No source file is modified and nothing is posted automatically.
+Stabilization starts off in a new editor session. Its experimental preview analyzes only the selected section when explicitly requested; Off, Gentle, Strong and Maximum remain selectable. The editor and export share framing and telemetry effects. The preview shows recorded audio or mute; export-only wind filtering and downloaded road context can differ. Export freezes the chosen settings and writes a separate gallery copy, without a second settings prompt. No source file is modified and nothing is posted automatically.
 
-Leaving or rotating during analysis cancels that analysis. Applied trim/settings survive rotation; playback restarts paused. Unapplied slider changes must be applied before export. This is a single-clip editor; multi-clip assembly, captions, music and transitions are not implemented.
+Leaving or rotating during analysis cancels that analysis. Applied trim/settings and draft sliders survive rotation; playback restarts paused. Set either boundary from the current playhead or the sliders, then apply the trim before export. Playback releases its decoder when the editor leaves the screen or capture starts, so it does not keep competing with recording. This is a single-clip editor; multi-clip assembly, captions, music and transitions are not implemented.
 
 These are editable starting settings, not platform upload guarantees. Platforms can change limits and recompress videos. The app prepares a video and opens the Android share chooser; it never posts automatically.
 

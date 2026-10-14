@@ -1,5 +1,15 @@
 # RideDeck Dash validation
 
+## 0.8.1 finishing checks, 2026-10-14
+
+- Hardened editor trim/export settings, draft rotation state, decoder release and capture-priority interruption. A new editor session defaults to stabilization off. Its optional stabilization preview/export remains experimental; no ride footage was analyzed in this finishing task.
+- Hardened time-window backup cancellation and continuous charger-or-50-percent checks, and retained the selected date/time/camera fields across rotation. Updated distant-focus settings text to match explicit rejection of unsupported manual locking.
+- Forty unit checks passed, as did debug build/lint and original-signer release build/lint. Signed replacement installation of 0.8.1 preserved the app and its existing recordings on Xiaomi 14T Pro (Android 16).
+- A new approximately 45-second stationary dual-camera recording finalized. Rear reported AF mode 0 and the user's saved 0.2-dioptre focus; front reported fixed focus. Nine optics samples per camera reported zoom 1.0 and thermal status 0. These are short bench samples, not outdoor focus/heat/frame-drop guarantees.
+- The playable editor rendered its fitted preview and controls in portrait and landscape. Draft 5–10-second boundaries survived rotation, then applied and exported without a second settings prompt. The separate copy has H.264 1080x1920 video, AAC 48 kHz mono audio and approximately 5.005 seconds duration. Only container metadata was read; no frame-motion, shake or blur analysis was run.
+- A backup of the new rear recording and its ride logs completed with a manifest; the copied original byte size matched it. Date/time/camera selection survived rotation. One attempted cancellation completed before Home reached the app, so interruption during an active copy is not claimed as physically verified. Original clips remain in the library. Test trim settings were returned to their prior 0–40-second values.
+- Long ride timing, vibration, focus breathing under road conditions and stabilization quality remain deferred to the user's next ride. Gyro correction, deblurring and rolling-shutter reconstruction remain unimplemented.
+
 ## 0.8.0 editor and backup candidate, 2026-10-14
 
 - Added a non-destructive single-clip editor with playable preview, trim controls, framing/audio/overlay settings, optional stabilization preview and separate-copy export. Added explicit complete-original and ride-log backup to Downloads.

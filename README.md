@@ -2,6 +2,16 @@
 
 A separate Android dashcam for RideDeck and RideDeck for Yamaha. Package: com.axelsarassamit.ridedeck.dash.
 
+## Editor and recording safeguards: 0.8.1
+
+Social export opens a playable single-clip editor with in/out trim, playhead selection, portrait/landscape layouts, platform presets, framing, audio/mute and telemetry controls. Preview and export share framing/data effects, and export freezes the chosen settings. Playback resources are released when leaving the editor or when recording starts. Originals stay untouched. A date/time-filtered local backup copies complete original clips and ride CSVs with a manifest, with cancellation and continuous power checks.
+
+Rear distant focus no longer silently falls back to continuous autofocus when manual locking is unavailable. Capture requests fixed 1x zoom and disables autoframing where supported. Capture logs now sample applied focus, focal length, zoom, exposure/frame timing and thermal status alongside cadence diagnostics. Rear-priority dual capture and native preview throttling remain in place.
+
+Export stabilization has a corrected rigid-pose calculation and filtered luma analysis, but remains experimental. Road vibration, blur and dropped-frame performance are not established by local UI tests. New editor sessions default to stabilization off. Longer ride footage will be reviewed separately; gyro correction, deblurring and rolling-shutter reconstruction are not implemented.
+
+See [the long ride checklist](docs/LONG_RIDE_CHECK.md) and [editor choices](docs/SOCIAL_PRESETS.md).
+
 ## Road footage stabilization: 0.7.0
 
 Overlay and social exports now offer Off, Gentle, Strong and Maximum image stabilization. Gentle uses 12% zoom, Strong 22%, and Maximum 35%: smoothing trades picture edges for steadier footage. Analysis runs locally on clean originals, tracks road features with OpenCV, rejects unreliable intervals, and bounds translation and rotation inside the crop. Logo and telemetry overlays are added afterward. Originals and audio remain preserved. Gyro correction and rolling-shutter reconstruction are not implemented, and already blurred details cannot be recovered.
