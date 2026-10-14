@@ -1,5 +1,11 @@
 # RideDeck Dash validation
 
+## 0.8.0 editor and backup candidate, 2026-10-14
+
+- Added a non-destructive single-clip editor with playable preview, trim controls, framing/audio/overlay settings, optional stabilization preview and separate-copy export. Added explicit complete-original and ride-log backup to Downloads.
+- The local 0.8.0 signed APK passed signature verification with the permanent Dash certificate. `:app:testDebugUnitTest`, `:app:assembleDebug`, `:app:lintDebug`, `:app:assembleRelease` and `:app:lintRelease` passed; all 38 unit tests passed.
+- Ride footage was not opened or analyzed for this build. Stabilization quality is not claimed. Landscape editor, applied nonzero trim, interruption/rotation and backup behavior still require phone verification; the phone was left available for the user's ride.
+
 ## 0.3.0 and 0.3.1 changes and bench checks, 2026-10-11
 
 - Real rear/front alignment views rendered before capture and during capture on the Xiaomi. Portrait/landscape rotation retained recording and changed the displayed orientation.

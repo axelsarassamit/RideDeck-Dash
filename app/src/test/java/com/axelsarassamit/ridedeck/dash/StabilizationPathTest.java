@@ -2,6 +2,21 @@ package com.axelsarassamit.ridedeck.dash;
 import org.junit.Test;
 import static org.junit.Assert.*;
 public class StabilizationPathTest {
+    @Test public void accumulatedTranslationRotatesWithCamera() {
+        float[] path=StabilizationPath.compose(new float[]{10,0,0},new float[]{0,0,(float)Math.PI/2});
+        assertEquals(0,path[0],0.0001);assertEquals(10,path[1],0.0001);
+        float[] restored=StabilizationPath.compose(path,new float[]{-10,0,-(float)Math.PI/2});
+        assertEquals(0,restored[0],0.0001);assertEquals(0,restored[1],0.0001);
+    }
+    @Test public void correctionUsesInversePoseRatherThanTranslationSubtraction() {
+        long[] times={0,33333,66666};
+        float[][] pose={{20,0,0},{20,0,0.02f},{20,0,0}};
+        float[][] correction=StabilizationPath.smooth(times,pose,new int[3],3,320,180);
+        float angle=correction[1][2];
+        // The corrected camera center must remain on the smoothed center (20,0).
+        assertEquals(20,Math.cos(angle)*20+correction[1][0],0.0001);
+        assertEquals(0,Math.sin(angle)*20+correction[1][1],0.0001);
+    }
     @Test public void alternatingShakeIsReducedWithoutChangingSlowPan(){
         long[] times=new long[120];float[][] path=new float[120][3];int[] segments=new int[120];
         for(int i=0;i<120;i++){times[i]=i*33333L;path[i][0]=i*0.4f+(i%2==0?6:-6);}

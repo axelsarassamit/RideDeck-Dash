@@ -391,7 +391,9 @@ public final class RecordingService extends Service {
                                         if(windowSensor==0){windowSensor=sensorTime;}
                                         windowFrames++;
                                         if(sensorTime-windowSensor>=5000000000L){observedFps=(windowFrames-1)*1000000000f/(sensorTime-windowSensor);
-                                            try{event("cadence_"+String.format(Locale.ROOT,"%.1ffps_%dgaps",observedFps,windowGaps),current,sensorTime);}catch(IOException error){fail("Cannot save camera timing");}
+                                            try{event("cadence_"+String.format(Locale.ROOT,"%.1ffps_%dgaps",observedFps,windowGaps),current,sensorTime);
+                                                event("optics_af"+result.get(CaptureResult.CONTROL_AF_MODE)+"_focus"+result.get(CaptureResult.LENS_FOCUS_DISTANCE)+"_focal"+result.get(CaptureResult.LENS_FOCAL_LENGTH)+"_exposureNs"+result.get(CaptureResult.SENSOR_EXPOSURE_TIME)+"_frameNs"+result.get(CaptureResult.SENSOR_FRAME_DURATION)+(Build.VERSION.SDK_INT>=30?"_zoom"+result.get(CaptureResult.CONTROL_ZOOM_RATIO):"")+(Build.VERSION.SDK_INT>=29?"_thermal"+getSystemService(PowerManager.class).getCurrentThermalStatus():""),current,sensorTime);
+                                            }catch(IOException error){fail("Cannot save camera timing");}
                                             windowSensor=sensorTime;windowFrames=1;windowGaps=0;updateCameraStatus();
                                         }
                                     }

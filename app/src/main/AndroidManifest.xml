@@ -28,11 +28,13 @@
         <activity android:name=".CapabilityActivity" android:exported="false" />
         <activity android:name=".AudioCheckActivity" android:exported="false" />
         <activity android:name=".SocialSettingsActivity" android:exported="false" />
+        <activity android:name=".SocialEditorActivity" android:exported="false" />
         <activity android:name=".OverlayPreviewActivity" android:exported="false" />
         <activity android:name=".OverlaySettingsActivity" android:exported="false" />
         <activity android:name=".OverlayExportActivity" android:exported="false" />
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".ClipsActivity" android:exported="false" />
+        <activity android:name=".RecordingBackupActivity" android:exported="false" />
         <activity android:name=".MapActivity" android:exported="false" />
         <activity android:name=".DashboardActivity" android:exported="true">
             <intent-filter>

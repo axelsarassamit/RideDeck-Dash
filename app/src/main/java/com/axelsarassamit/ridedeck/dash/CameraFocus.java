@@ -6,6 +6,12 @@ import android.hardware.camera2.*;
 final class CameraFocus {
     static void apply(CaptureRequest.Builder request, CameraCharacteristics camera,
                       DashSettings settings, String label) {
+        if(android.os.Build.VERSION.SDK_INT>=30 && camera.getAvailableCaptureRequestKeys().contains(CaptureRequest.CONTROL_ZOOM_RATIO)) {
+            android.util.Range<Float> range=camera.get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE);
+            if(range!=null&&range.contains(1f))request.set(CaptureRequest.CONTROL_ZOOM_RATIO,1f);
+        }
+        if(android.os.Build.VERSION.SDK_INT>=34 && camera.getAvailableCaptureRequestKeys().contains(CaptureRequest.CONTROL_AUTOFRAMING))
+            request.set(CaptureRequest.CONTROL_AUTOFRAMING,CaptureRequest.CONTROL_AUTOFRAMING_OFF);
         int selected = settings.number(label + "Focus", "rear".equals(label) ? 1 : 0);
         Float minimum = camera.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
         int[] modes = camera.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES);
@@ -22,6 +28,7 @@ final class CameraFocus {
             request.set(CaptureRequest.LENS_FOCUS_DISTANCE, Math.min(minimum, selected == 2 ? 0.2f : 0f));
             return;
         }
+        if(selected!=0)throw new IllegalStateException(label+" camera cannot lock distant focus. Choose another lens or explicitly choose autofocus in Camera selection.");
         if (supports(modes, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO))
             request.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
         else if (supports(modes, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE))

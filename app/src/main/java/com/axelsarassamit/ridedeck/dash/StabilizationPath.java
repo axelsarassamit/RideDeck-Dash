@@ -20,12 +20,20 @@ final class StabilizationPath {
             double sin = Math.abs(Math.sin(angle)), cos = Math.abs(Math.cos(angle));
             float xLimit = (float)Math.max(0, (zoom-cos-(double)height/width*sin)*width/2/zoom);
             float yLimit = (float)Math.max(0, (zoom-cos-(double)width/height*sin)*height/2/zoom);
-            result[i][0] = clamp((float)(sum[0]/weights-motion[i][0]), xLimit);
-            result[i][1] = clamp((float)(sum[1]/weights-motion[i][1]), yLimit);
+            // S * inverse(P): rotations change the coordinate system of accumulated translation.
+            // Subtracting translations directly is only valid when the correction has no rotation.
+            double c=Math.cos(angle),s=Math.sin(angle);
+            result[i][0] = clamp((float)(sum[0]/weights-c*motion[i][0]+s*motion[i][1]), xLimit);
+            result[i][1] = clamp((float)(sum[1]/weights-s*motion[i][0]-c*motion[i][1]), yLimit);
             result[i][2] = angle;
         }
         return result;
     }
     static float zoom(int strength) { return strength == 1 ? 1.12f : strength == 2 ? 1.22f : 1.35f; }
+    static float[] compose(float[] path,float[] delta) {
+        double c=Math.cos(delta[2]),s=Math.sin(delta[2]);
+        return new float[]{(float)(c*path[0]-s*path[1]+delta[0]),
+            (float)(s*path[0]+c*path[1]+delta[1]),path[2]+delta[2]};
+    }
     static float clamp(float value,float limit) { return Math.max(-limit,Math.min(limit,value)); }
 }

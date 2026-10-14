@@ -10,6 +10,8 @@ final class DashSettings {
  String text(String key,String fallback){return snapshot==null?prefs.getString(key,fallback):snapshot.get(key) instanceof String?(String)snapshot.get(key):fallback;}
  void put(String key,int value){prefs.edit().putInt(key,value).apply();}
  void put(String key,String value){prefs.edit().putString(key,value).apply();}
+ android.os.Bundle bundle(){android.os.Bundle result=new android.os.Bundle();java.util.Map<String,?> values=snapshot==null?prefs.getAll():snapshot;for(java.util.Map.Entry<String,?> entry:values.entrySet()){if(entry.getValue() instanceof Integer)result.putInt(entry.getKey(),(Integer)entry.getValue());else if(entry.getValue() instanceof String)result.putString(entry.getKey(),(String)entry.getValue());}return result;}
+ static DashSettings fromBundle(Context context,android.os.Bundle bundle){if(bundle==null)return new DashSettings(context,true);java.util.Map<String,Object> values=new java.util.HashMap<>();for(String key:bundle.keySet()){Object value=bundle.get(key);if(value instanceof Integer||value instanceof String)values.put(key,value);}return new DashSettings(context,values);}
  long clipBytes(){return number("clip",128)*1024L*1024;}
  long quotaBytes(){return number("quota",8)*1024L*1024*1024;}
  int width(){return number("height",720)==1080?1920:1280;}
