@@ -32,14 +32,14 @@ public final class SettingsActivity extends Activity {
   choice("Camera view refresh","preview",new int[]{5,10,2},new String[]{"5 fps (balanced)","10 fps (smooth)","2 fps (low power)"},5);
   }
   if(section.equals("audio")){
-  DashUi.text(this,page,"Automatic input uses a connected Bluetooth voice microphone when available, otherwise Android's regular input. Multiple Bluetooth voice devices require a specific selection. Bluetooth playback alone does not prove that a microphone is available. Wired and USB microphones remain selectable. The chosen input is checked during recording.",15);
+  DashUi.text(this,page,"Automatic recording uses the phone microphone so Spotify and other music can keep their normal Bluetooth sound. Wired and USB microphones remain selectable. The chosen input is checked during recording.",15);
   DashUi.button(this,page,"Sound check: phone and Bluetooth",v->startActivity(new Intent(this,AudioCheckActivity.class)));
   choice("Export sound preset","audio_cutoff",new int[]{0,50,120,180},new String[]{"Original audio","Natural ride (50 Hz)","Wind rumble reduction (120 Hz)","Voice focus (180 Hz)"},0);
   choice("Custom low-cut frequency","audio_cutoff",new int[]{0,30,50,80,120,180,250},new String[]{"Off","30 Hz","50 Hz","80 Hz","120 Hz","180 Hz","250 Hz"},0);
   DashUi.text(this,page,"Low-cut filtering applies to overlay and social exported copies only. Originals keep their sound. Higher settings remove more wind rumble and engine bass. It does not remove all wind or restore clipped sound. For natural capture, Unprocessed (if supported) or Voice recognition can avoid some automatic processing. Video capture still uses one input; a phone + Bluetooth mix is not enabled by the sound check.",16);
   DashUi.button(this,page,"Microphone: "+AudioInputs.savedLabel(this,settings),v->microphones());
   choice("Microphone processing","source",new int[]{1,5,6,9},new String[]{"Standard microphone","Camera recording","Voice recognition","Unprocessed if supported"},1);
-  DashUi.text(this,page,"Audio is embedded in the rear video, or front video in front-only mode. Android chooses the physical capsules within a phone input. A phone + headset mix is not available in this version. Headsets must be connected and exposed as an input. Bluetooth requires Android permission and communication routing; quality may be lower. The dashboard reports the actual routed input.",16);
+  DashUi.text(this,page,"Audio is embedded in the rear video, or front video in front-only mode. Bluetooth microphone recording can make Spotify quiet and muffled for the entire recording. Choose the phone microphone for clear music. Yamaha voice buttons can use the headset briefly while Dash pauses. A phone + headset mix is not available. The dashboard reports the actual recording input.",16);
   }
   DashUi.text(this,page,"Video requests the steadiest supported 30 fps camera range. Dual 1080p and hardware stabilization depend on the phone. Preview conversion runs separately from recording. From Recordings, overlay and social exports offer Gentle, Strong and Maximum motion smoothing with extra crop. Originals stay unchanged. Image smoothing cannot remove existing vibration blur or all rolling-shutter distortion. Gyro processing and automatic incident detection are not enabled.",16);
   DashUi.button(this,page,"Back",v->finish());
@@ -48,11 +48,14 @@ public final class SettingsActivity extends Activity {
   DashUi.button(this,page,title+": "+labels[index],v->new AlertDialog.Builder(this).setTitle(title).setItems(labels,(d,i)->{settings.put(key,values[i]);settings.put("preset","Custom");recreate();}).show());}
  void microphones(){
   if(Build.VERSION.SDK_INT>=31 && checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT)!=android.content.pm.PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{android.Manifest.permission.BLUETOOTH_CONNECT},41);return;}
-  AudioDeviceInfo[] devices=getSystemService(AudioManager.class).getDevices(AudioManager.GET_DEVICES_INPUTS);AudioInputs.discover(devices);List<String> labels=new ArrayList<>(),keys=new ArrayList<>();labels.add("Off");keys.add("off");labels.add("Automatic input");keys.add("auto");
-  labels.add("Connected Bluetooth headset (any brand)");keys.add("headset");
+  AudioDeviceInfo[] devices=getSystemService(AudioManager.class).getDevices(AudioManager.GET_DEVICES_INPUTS);AudioInputs.discover(devices);List<String> labels=new ArrayList<>(),keys=new ArrayList<>();labels.add("Off");keys.add("off");labels.add("Automatic phone microphone");keys.add("auto");
+  labels.add("Bluetooth microphone (reduces music quality)");keys.add("headset");
   for(AudioDeviceInfo device:devices){if(!AudioInputs.selectable(device))continue;labels.add(AudioInputs.label(device));keys.add(AudioInputs.key(device));}
   if(Build.VERSION.SDK_INT>=31)for(AudioDeviceInfo device:getSystemService(AudioManager.class).getAvailableCommunicationDevices()){if(!HeadsetRoute.bluetooth(device)||keys.contains(AudioInputs.key(device)))continue;labels.add(AudioInputs.label(device));keys.add(AudioInputs.key(device));}
-  new AlertDialog.Builder(this).setTitle("Choose recording input").setItems(labels.toArray(new String[0]),(d,i)->{settings.put("audio",keys.get(i));settings.put("audioLabel",labels.get(i));recreate();}).show();
+  new AlertDialog.Builder(this).setTitle("Choose recording input").setItems(labels.toArray(new String[0]),(d,i)->{
+   Runnable save=()->{settings.put("audio",keys.get(i));settings.put("audioLabel",labels.get(i));recreate();};
+   if(RecordingAudioPolicy.bluetooth(keys.get(i)))new AlertDialog.Builder(this).setTitle("Bluetooth microphone reduces music quality").setMessage("Recording through the headset microphone can make Spotify quiet and muffled. Use the phone microphone to keep clear music.").setPositiveButton("Use Bluetooth microphone",(warning,which)->save.run()).setNegativeButton("Keep current input",null).show();else save.run();
+  }).show();
  }
  void rearLenses(){try{
   android.hardware.camera2.CameraManager manager=getSystemService(android.hardware.camera2.CameraManager.class);

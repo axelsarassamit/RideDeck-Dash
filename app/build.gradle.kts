@@ -8,7 +8,7 @@ android {
         minSdk = 26
         targetSdk = 35
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        val releaseVersion = (System.getenv("DASH_VERSION_NAME") ?: "0.8.2").removePrefix("v")
+        val releaseVersion = (System.getenv("DASH_VERSION_NAME") ?: "0.8.3").removePrefix("v")
         require(Regex("[0-9]{1,3}\\.[0-9]{1,2}\\.[0-9]{1,2}").matches(releaseVersion)) { "Use numeric major.minor.patch; minor and patch must be under 100" }
         val parts = releaseVersion.split(".").map(String::toInt)
         versionCode = parts[0] * 10000 + parts[1] * 100 + parts[2]

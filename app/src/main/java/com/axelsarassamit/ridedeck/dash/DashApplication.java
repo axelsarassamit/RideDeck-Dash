@@ -11,7 +11,7 @@ public final class DashApplication extends Application implements Application.Ac
     public static synchronized boolean isVisible() {
         return visible > 0 || SystemClock.elapsedRealtime() < rotationUntil;
     }
-    @Override public void onCreate() { super.onCreate(); registerActivityLifecycleCallbacks(this); }
+    @Override public void onCreate() { super.onCreate(); DashSettings.migrateMusicSafeAudio(this); registerActivityLifecycleCallbacks(this); }
     @Override public synchronized void onActivityStarted(Activity activity) { visible++; rotationUntil = 0; }
     @Override public synchronized void onActivityStopped(Activity activity) {
         visible = Math.max(0, visible - 1);

@@ -6,7 +6,7 @@ final class AudioInputs {
  static final java.util.Map<String,Integer> phoneNames=new java.util.concurrent.ConcurrentHashMap<>();
  static void discover(AudioDeviceInfo[] devices){int n=0;for(AudioDeviceInfo d:devices)if(d.getType()==AudioDeviceInfo.TYPE_BUILTIN_MIC)phoneNames.put(key(d),++n);}
  static int phoneNumber(AudioDeviceInfo d){return phoneNames.computeIfAbsent(key(d),k->phoneNames.size()+1);}
- static String savedLabel(android.content.Context c,DashSettings settings){String key=settings.text("audio","off");if("off".equals(key))return "Off";if("auto".equals(key))return "Automatic input";if("headset".equals(key))return "Connected Bluetooth headset (any brand)";
+ static String savedLabel(android.content.Context c,DashSettings settings){String key=settings.text("audio","off");if("off".equals(key))return "Off";if("auto".equals(key))return "Automatic phone microphone";if("headset".equals(key))return "Bluetooth microphone (reduces music quality)";
   try{AudioDeviceInfo[] devices=c.getSystemService(AudioManager.class).getDevices(AudioManager.GET_DEVICES_INPUTS);discover(devices);for(AudioDeviceInfo d:devices)if(key(d).equals(key))return label(d);}catch(SecurityException ignored){}
   String old=settings.text("audioLabel","Selected microphone");return old.startsWith("Phone microphone")?"Phone microphone (disconnected)":old.replaceAll(" [(][0-9]+[)]$", "")+" (disconnected)";
  }

@@ -3,6 +3,14 @@ import android.content.*;
 final class DashSettings {
  final android.content.SharedPreferences prefs;
  final java.util.Map<String,?> snapshot;
+ static void migrateMusicSafeAudio(Context context){
+  android.content.SharedPreferences p=context.getSharedPreferences("dash-settings",Context.MODE_PRIVATE);
+  if(p.getBoolean("music_safe_audio_v1",false))return;
+  String old=p.getString("audio","off"),next=RecordingAudioPolicy.migrateLegacyInput(old);
+  android.content.SharedPreferences.Editor edit=p.edit().putBoolean("music_safe_audio_v1",true);
+  if(!old.equals(next))edit.putString("audio",next).putString("audioLabel","Automatic phone microphone");
+  if(!edit.commit())throw new IllegalStateException("Could not save music-safe microphone setting");
+ }
  DashSettings(Context c){this(c,false);}
  DashSettings(Context c,boolean frozen){prefs=c.getSharedPreferences("dash-settings",Context.MODE_PRIVATE);snapshot=frozen?prefs.getAll():null;}
  DashSettings(Context c,java.util.Map<String,?> values){prefs=c.getSharedPreferences("dash-settings",Context.MODE_PRIVATE);snapshot=new java.util.HashMap<>(values);}

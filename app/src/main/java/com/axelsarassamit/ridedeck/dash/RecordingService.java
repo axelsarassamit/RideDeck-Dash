@@ -286,12 +286,13 @@ public final class RecordingService extends Service {
                 if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED)throw new IOException("Microphone permission required");
                 audioManager=getSystemService(android.media.AudioManager.class);
                 String desired=settings.text("audio","off");
-                if("auto".equals(desired)&&Build.VERSION.SDK_INT>=31&&checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)==PackageManager.PERMISSION_GRANTED){
-                    for(android.media.AudioDeviceInfo device:audioManager.getAvailableCommunicationDevices())if(HeadsetRoute.bluetooth(device)){desired="headset";break;}
-                }
-                bluetooth="headset".equals(desired)||desired.startsWith(android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO+":")||(Build.VERSION.SDK_INT>=31&&desired.startsWith(android.media.AudioDeviceInfo.TYPE_BLE_HEADSET+":"));
+                bluetooth=RecordingAudioPolicy.bluetooth(desired);
                 if(bluetooth){headsetRoute=new HeadsetRoute(audioManager);audioStatus="Connecting headset microphone";chosen=headsetRoute.connect(desired);}
-                else if(!"auto".equals(desired)){for(android.media.AudioDeviceInfo device:audioManager.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS))if(AudioInputs.key(device).equals(desired))chosen=device;
+                else if(RecordingAudioPolicy.automaticPhone(desired)){
+                    for(android.media.AudioDeviceInfo device:audioManager.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS))if(device.getType()==android.media.AudioDeviceInfo.TYPE_BUILTIN_MIC){chosen=device;break;}
+                    if(chosen==null)throw new IOException("Phone microphone unavailable; select a recording input");
+                }
+                else {for(android.media.AudioDeviceInfo device:audioManager.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS))if(AudioInputs.key(device).equals(desired))chosen=device;
                     if(chosen==null)throw new IOException("Selected microphone disconnected; choose another input");}
                 preferredAudioKey=chosen==null?null:AudioInputs.key(chosen);
                 recorder.setAudioSource(bluetooth?MediaRecorder.AudioSource.VOICE_COMMUNICATION:settings.number("source",1));
