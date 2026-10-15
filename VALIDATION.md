@@ -1,5 +1,11 @@
 # RideDeck Dash validation
 
+## 0.8.4 charger grace, 2026-10-15
+
+- Recording uses a shared persisted monotonic five-minute unplugged allowance with a 30% minimum, independent of GPS. Reconnection resets the allowance. Standalone, signed companion starts and the continuous recording gate use the same policy. The old stationary stop control is replaced with an explanation of the fixed grace rule.
+- Forty-seven unit tests and debug build/lint passed. New coverage checks the exact expiry, 29%/30% boundary, reconnect/reset, restored timer and background authorization. Heavy-work reserve remains charging or 50% battery.
+- Real five-minute cable removal and low-battery cutoff are not claimed physically verified. Battery and GPS were not spoofed for acceptance. Source diagnostics and the app's short phone smoke check do not establish ride performance.
+
 ## 0.8.1 finishing checks, 2026-10-14
 
 - Hardened editor trim/export settings, draft rotation state, decoder release and capture-priority interruption. A new editor session defaults to stabilization off. Its optional stabilization preview/export remains experimental; no ride footage was analyzed in this finishing task.

@@ -7,7 +7,7 @@ Use this after installing 0.8.1. Recording and playback checks do not establish 
 1. Mount the phone securely in the same position used for the ride. Set the angle while parked, using the live preview. Keep the road visible above the cockpit and windscreen edges.
 2. Use **Camera selection > Rear camera focus > Road: distant focus locked**. This keeps autofocus from hunting toward mirrors and screens when the selected camera supports manual focus. Dash now refuses an unsupported focus lock instead of quietly selecting autofocus. Fixed-focus cameras remain supported.
 3. Keep **Rear priority** for dual recording. If you want to compare camera load, make one separate ride with Rear only using the same rear quality. Do not change camera settings while moving.
-4. Connect the charger or confirm at least 50% battery. Choose sufficient storage, clip size and recording reserve in setup. Protected clips occupy the recording budget until you remove/export them.
+4. Connect the charger for the ride. Unplugged recording is limited to five minutes and requires at least 30% battery; reconnecting resets the timer. Choose sufficient storage, clip size and recording reserve in setup. Protected clips occupy the recording budget until you remove/export them.
 5. Start your RideDeck or Yamaha ride session and confirm Dash shows recording. Use the startup preview to check the angle. Background recording needs that active companion session.
 
 ## During the ride

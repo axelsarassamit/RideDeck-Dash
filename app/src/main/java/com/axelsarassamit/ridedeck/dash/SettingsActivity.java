@@ -9,8 +9,9 @@ public final class SettingsActivity extends Activity {
   DashUi.text(this,page,"Changes apply to the next recording. Unsupported camera combinations stop with a clear message. Protected clips count toward your storage limit.",16);
   if(section.equals("automation")){
   choice("Automatic ride recording","autostart",new int[]{1,0},new String[]{"On","Off"},1);
-  choice("Stop when unplugged and stationary","autostop",new int[]{60,120,30,0},new String[]{"60 seconds","2 minutes","30 seconds","Off"},60);
-  DashUi.text(this,page,"Starts once for a new RideDeck session or after GPS confirms at least 8 km/h for 3 seconds while Dash is open. Manual Stop suppresses restart until a new session or a stationary-to-moving transition. Unplugged recording below 50% still stops immediately. Missing GPS does not count as stationary.",15);
+  DashUi.text(this,page,"Charger grace: 5 minutes",22);
+  DashUi.text(this,page,"Recording can continue on battery for up to five minutes after unplugging, even while moving. Reconnecting resets the grace period. Below 30% battery, unplugged recording stops immediately. The timer is shared across recording restarts; GPS is not needed. If Dash first opens without a charger, its five-minute allowance begins then.",15);
+  DashUi.text(this,page,"Starts once for a new RideDeck session or after GPS confirms at least 8 km/h for 3 seconds while Dash is open. Manual Stop suppresses restart until a new session or a stationary-to-moving transition. Reconnecting power alone does not start recording. Editing, export and backup still require charging or at least 50% battery.",15);
   }
   if(section.equals("video")){
   DashUi.button(this,page,"Rear lens: "+settings.text("rearLensLabel","Automatic main camera"),v->rearLenses());

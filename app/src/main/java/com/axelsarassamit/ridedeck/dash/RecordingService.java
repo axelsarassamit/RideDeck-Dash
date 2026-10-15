@@ -183,16 +183,11 @@ public final class RecordingService extends Service {
         if (!running || stopping) return false;
         boolean plugged = power != null && power.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0;
         int percent = power == null ? -1 : RecordingGate.batteryPercent(power.getIntExtra(BatteryManager.EXTRA_LEVEL, -1), power.getIntExtra(BatteryManager.EXTRA_SCALE, -1));
-        RecordingGate.Result gate = RecordingGate.evaluate(plugged, percent, DashApplication.isVisible(),
+        RecordingGate.Result gate = DashApplication.recordingGate(power, DashApplication.isVisible(),
             DashBridgeProvider.SESSIONS.isActive(SystemClock.elapsedRealtime()));
         if (gate != RecordingGate.Result.ALLOWED) {
-            finish(gate == RecordingGate.Result.COMPANION_REQUIRED ? "Stopped: no active RideDeck ride session" : "Stopped: connect charger or charge to 50%");
+            finish(gate == RecordingGate.Result.COMPANION_REQUIRED ? "Stopped: no active RideDeck ride session" : gate == RecordingGate.Result.CHARGER_TIMEOUT ? "Stopped: charger disconnected for 5 minutes" : "Stopped: connect charger; battery must be at least 30% when unplugged");
             return false;
-        }
-        Location fix=position;long now=SystemClock.elapsedRealtime();boolean fresh=fix!=null&&fix.hasSpeed()&&SystemClock.elapsedRealtimeNanos()-fix.getElapsedRealtimeNanos()<6000000000L;
-        int stopSeconds=settings.number("autostop",60);
-        if(stopSeconds>0 && driveAutomation.stop(now,plugged,fresh,fix==null?0:fix.getSpeed(),fix==null?Float.MAX_VALUE:fix.getAccuracy(),stopSeconds*1000L)){
-            finish("Stopped: charger unplugged and bike stationary");return false;
         }
         return true;
     }

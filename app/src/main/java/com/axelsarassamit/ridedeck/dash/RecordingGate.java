@@ -2,7 +2,17 @@ package com.axelsarassamit.ridedeck.dash;
 
 /** Evaluated before start and continuously during capture by the future recorder. */
 public final class RecordingGate {
-    public enum Result { ALLOWED, BATTERY_TOO_LOW, BATTERY_UNKNOWN, COMPANION_REQUIRED }
+    public enum Result { ALLOWED, BATTERY_TOO_LOW, BATTERY_UNKNOWN, COMPANION_REQUIRED, CHARGER_TIMEOUT }
+    public static Result recording(boolean plugged, int batteryPercent, boolean visible, boolean authorizedRideActive, long unpluggedMs) {
+        if (!plugged) {
+            if (batteryPercent < 0 || batteryPercent > 100) return Result.BATTERY_UNKNOWN;
+            if (batteryPercent < 30) return Result.BATTERY_TOO_LOW;
+            if (unpluggedMs < 0 || unpluggedMs >= ChargerGrace.TIMEOUT_MS) return Result.CHARGER_TIMEOUT;
+        }
+        if (!visible && !authorizedRideActive) return Result.COMPANION_REQUIRED;
+        return Result.ALLOWED;
+    }
+    /** Higher battery reserve for editing, export, backup and sound checks. */
     public static Result evaluate(boolean plugged, int batteryPercent, boolean visible, boolean authorizedRideActive) {
         if (!plugged) {
             if (batteryPercent < 0 || batteryPercent > 100) return Result.BATTERY_UNKNOWN;

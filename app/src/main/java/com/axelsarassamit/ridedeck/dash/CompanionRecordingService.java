@@ -36,8 +36,8 @@ public final class CompanionRecordingService extends Service {
             boolean plugged = battery != null && battery.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0;
             int percent = battery == null ? -1 : RecordingGate.batteryPercent(
                 battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1), battery.getIntExtra(BatteryManager.EXTRA_SCALE, -1));
-            if (RecordingGate.evaluate(plugged, percent, false, true) != RecordingGate.Result.ALLOWED)
-                throw new IllegalStateException("Connect a charger or charge to at least 50%");
+            if (DashApplication.recordingGate(battery, false, true) != RecordingGate.Result.ALLOWED)
+                throw new IllegalStateException("Connect charger. Unplugged recording needs at least 30% battery and stops after 5 minutes");
             if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
                 || (!"off".equals(settings.text("audio", "off"))
                 && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED))
