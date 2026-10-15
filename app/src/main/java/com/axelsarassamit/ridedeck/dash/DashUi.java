@@ -24,10 +24,10 @@ final class DashUi {
     static int dp(Activity a,int n) { return Math.round(n*a.getResources().getDisplayMetrics().density); }
     static void card(android.view.View v,int color,float radius){android.graphics.drawable.GradientDrawable d=new android.graphics.drawable.GradientDrawable();d.setColor(color);d.setCornerRadius(radius*v.getResources().getDisplayMetrics().density);v.setBackground(d);}
     static TextView text(Activity a, LinearLayout page, String value, int size) {
-        TextView t = new TextView(a); t.setText(value); t.setTextColor(WHITE); t.setTextSize(size); t.setTypeface(android.graphics.Typeface.create("sans-serif",0)); t.setPadding(dp(a,8),dp(a,10),dp(a,8),dp(a,10)); page.addView(t); return t;
+        TextView t = new TextView(a); t.setText(value); t.setTextColor(WHITE); t.setTextSize(size); t.setTypeface(android.graphics.Typeface.create("sans-serif",android.graphics.Typeface.NORMAL)); t.setPadding(dp(a,8),dp(a,10),dp(a,8),dp(a,10)); page.addView(t); return t;
     }
     static Button button(Activity a, LinearLayout p, String label, View.OnClickListener action) {
-        Button b = new Button(a); b.setText(label); b.setAllCaps(false); b.setTextSize(16); b.setTypeface(android.graphics.Typeface.create("sans-serif-medium",0));
+        Button b = new Button(a); b.setText(label); b.setAllCaps(false); b.setTextSize(16); b.setTypeface(android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.NORMAL));
         float density=a.getResources().getDisplayMetrics().density;
         b.setMinHeight((int)(56*density));b.setPadding(dp(a,16),dp(a,8),dp(a,16),dp(a,8));
         android.graphics.drawable.GradientDrawable background=new android.graphics.drawable.GradientDrawable();
