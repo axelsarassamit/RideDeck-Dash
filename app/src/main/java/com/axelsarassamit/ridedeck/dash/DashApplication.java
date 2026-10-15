@@ -47,8 +47,8 @@ public final class DashApplication extends Application implements Application.Ac
         visible = Math.max(0, visible - 1);
         if (activity.isChangingConfigurations()) rotationUntil = SystemClock.elapsedRealtime() + 3000;
     }
-    @Override public void onActivityCreated(Activity a, Bundle b) {}
-    @Override public void onActivityResumed(Activity a) {}
+    @Override public void onActivityCreated(Activity a, Bundle b) { ScreenChrome.apply(a.getWindow(), a instanceof DashboardActivity); }
+    @Override public void onActivityResumed(Activity a) { ScreenChrome.apply(a.getWindow(), a instanceof DashboardActivity); }
     @Override public void onActivityPaused(Activity a) {}
     @Override public void onActivitySaveInstanceState(Activity a, Bundle b) {}
     @Override public void onActivityDestroyed(Activity a) {}
