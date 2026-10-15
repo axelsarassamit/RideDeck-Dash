@@ -7,7 +7,8 @@ android {
         applicationId = "com.axelsarassamit.ridedeck.dash"
         minSdk = 26
         targetSdk = 35
-        val releaseVersion = (System.getenv("DASH_VERSION_NAME") ?: "0.8.1").removePrefix("v")
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        val releaseVersion = (System.getenv("DASH_VERSION_NAME") ?: "0.8.2").removePrefix("v")
         require(Regex("[0-9]{1,3}\\.[0-9]{1,2}\\.[0-9]{1,2}").matches(releaseVersion)) { "Use numeric major.minor.patch; minor and patch must be under 100" }
         val parts = releaseVersion.split(".").map(String::toInt)
         versionCode = parts[0] * 10000 + parts[1] * 100 + parts[2]
@@ -28,6 +29,7 @@ android {
         debug { applicationIdSuffix = ".debug"; versionNameSuffix = "-dev" }
         release { signingConfig = signingConfigs.getByName("release") }
     }
+    testBuildType = providers.gradleProperty("phoneTestVariant").orElse("debug").get()
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -41,4 +43,6 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.9.3")
     implementation("androidx.media3:media3-ui:1.9.3")
     testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:core:1.6.1")
 }

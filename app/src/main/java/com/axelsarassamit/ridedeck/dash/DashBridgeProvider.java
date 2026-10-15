@@ -24,6 +24,20 @@ public final class DashBridgeProvider extends ContentProvider {
             throw new IllegalArgumentException("Dash bridge requires protocolVersion 1");
         Bundle result = new Bundle();
         result.putInt("protocolVersion", 1);
+        if("pauseForVoice".equals(method)) {
+            long now=SystemClock.elapsedRealtime();
+            if(SESSIONS.isActive(now) && !SESSIONS.isOwnedBy(caller,now))
+                throw new SecurityException("The other RideDeck app owns this recording session");
+            boolean resumeAllowed=SESSIONS.isOwnedBy(caller,now);
+            try {
+                boolean paused=RecordingService.pauseForVoice();
+                result.putBoolean("accepted",true);result.putBoolean("paused",paused);
+                result.putBoolean("resumeAllowed",paused && resumeAllowed);
+                return result;
+            } catch(InterruptedException error) {
+                Thread.currentThread().interrupt();throw new IllegalStateException("Voice preparation interrupted");
+            }
+        }
         if ("renew".equals(method)) result.putBoolean("accepted", SESSIONS.renew(caller, SystemClock.elapsedRealtime()));
         else if ("stop".equals(method)) { SESSIONS.stop(caller); result.putBoolean("accepted", true); }
         else if (!"status".equals(method)) throw new IllegalArgumentException("Unknown Dash bridge method");

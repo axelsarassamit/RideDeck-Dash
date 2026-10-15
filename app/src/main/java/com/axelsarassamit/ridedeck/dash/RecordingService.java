@@ -18,6 +18,23 @@ import java.util.*;
 public final class RecordingService extends Service {
     public static volatile boolean running, finalizing;
     static volatile boolean capturing;
+    private static volatile RecordingService currentService;
+    /** Called only by the signature-checked companion provider, off the UI thread. */
+    static boolean pauseForVoice() throws InterruptedException {
+        RecordingService service=currentService;
+        if(service==null || !running) return false;
+        java.util.concurrent.CountDownLatch released=new java.util.concurrent.CountDownLatch(1);
+        if(!service.worker.post(()->{
+            try {
+                DashboardActivity.motionConsumed=true;
+                DashboardActivity.consumedSession=DashBridgeProvider.SESSIONS.generation();
+                service.finish("Paused for voice input");
+            } finally { released.countDown(); }
+        })) throw new IllegalStateException("Dash could not release the microphone");
+        if(!released.await(12,java.util.concurrent.TimeUnit.SECONDS))
+            throw new IllegalStateException("Dash is still saving its clip. Try voice again shortly");
+        return true;
+    }
     static long companionStartUntil;
     static String companionStartToken, companionStartOwner;
     public static volatile String state = "Ready to record";
@@ -61,6 +78,7 @@ public final class RecordingService extends Service {
     };
     @Override public void onCreate() {
         super.onCreate();
+        currentService=this;
         thread = new HandlerThread("DashCapture"); thread.start(); worker = new Handler(thread.getLooper());
         settings = new DashSettings(this,true); store = new ClipStore(this,settings);
         getSystemService(NotificationManager.class).createNotificationChannel(
@@ -210,6 +228,7 @@ public final class RecordingService extends Service {
         capturing=false; running=false; state=reason; stopForeground(STOP_FOREGROUND_REMOVE); stopSelf();
     }
     @Override public void onDestroy() {
+        if(currentService==this) currentService=null;
         if (worker != null) worker.post(() -> { finish("Recording stopped"); thread.quitSafely(); finalizing=false; });
         super.onDestroy();
     }
@@ -276,6 +295,7 @@ public final class RecordingService extends Service {
                     if(chosen==null)throw new IOException("Selected microphone disconnected; choose another input");}
                 preferredAudioKey=chosen==null?null:AudioInputs.key(chosen);
                 recorder.setAudioSource(bluetooth?MediaRecorder.AudioSource.VOICE_COMMUNICATION:settings.number("source",1));
+                if(Build.VERSION.SDK_INT>=30)recorder.setPrivacySensitive(false);
             }
             recorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
             recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
@@ -375,8 +395,11 @@ public final class RecordingService extends Service {
         String preferredAudioKey;
         Runnable thisTrackAudioCheck(){return ()->{if(!running||stopping||recorder==null)return;
             if(Build.VERSION.SDK_INT>=28){android.media.AudioDeviceInfo actual=recorder.getRoutedDevice();audioStatus=actual==null?"Audio route unavailable":AudioInputs.label(actual);
-                if(actual==null || (preferredAudioKey!=null&&!AudioInputs.key(actual).equals(preferredAudioKey)))fail("Selected microphone is not the active input");
-                else if(Build.VERSION.SDK_INT>=29&&recorder.getActiveRecordingConfiguration()!=null&&recorder.getActiveRecordingConfiguration().isClientSilenced())fail("Android silenced the recording microphone; finish the call or other microphone app");
+                if(Build.VERSION.SDK_INT>=29&&recorder.getActiveRecordingConfiguration()!=null&&recorder.getActiveRecordingConfiguration().isClientSilenced()) {
+                    audioStatus="Microphone in use by voice input; video continues";
+                    worker.postDelayed(thisTrackAudioCheck(),2000);
+                }
+                else if(actual==null || (preferredAudioKey!=null&&!AudioInputs.key(actual).equals(preferredAudioKey)))fail("Selected microphone is not the active input");
                 else {try{event("audio_"+audioStatus.replace(',','_')+"_peak"+recorder.getMaxAmplitude(),current,null);}catch(IOException error){fail("Cannot save microphone diagnostics");return;}worker.postDelayed(thisTrackAudioCheck(),2000);}
             }
         };}
