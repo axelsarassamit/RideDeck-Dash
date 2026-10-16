@@ -25,7 +25,7 @@ public final class DashBridgeProvider extends ContentProvider {
         Bundle result = new Bundle();
         result.putInt("protocolVersion", 1);
         if("appearance".equals(method)) {
-            RideAppearance.receive(getContext(),extras); result.putBoolean("accepted",true); return result;
+            RideAppearance.receive(getContext(),extras,caller); result.putBoolean("accepted",true); return result;
         }
         if("pauseForVoice".equals(method)) {
             long now=SystemClock.elapsedRealtime();

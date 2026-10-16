@@ -22,7 +22,7 @@ public final class RideAppearance implements Application.ActivityLifecycleCallba
         boolean system = (c.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         return AppearancePalette.dark(mode(c),system);
     }
-    private static String key(Context c) { return mode(c)+":"+isDark(c)+":"+accentIndex(c) + ":"+followsHost(c); }
+    private static String key(Context c) { return mode(c)+":"+isDark(c)+":"+accentIndex(c) + ":"+followsHost(c)+":"+prefs(c).getString("host_name",""); }
     public static void prepare(Activity a) {
         update(a); int index=Math.max(0,Math.min(4,accentIndex(a)));
         int[] themes=isDark(a) ? new int[]{R.style.RideDark0,R.style.RideDark1,R.style.RideDark2,R.style.RideDark3,R.style.RideDark4} : new int[]{R.style.RideLight0,R.style.RideLight1,R.style.RideLight2,R.style.RideLight3,R.style.RideLight4};
@@ -58,10 +58,12 @@ public final class RideAppearance implements Application.ActivityLifecycleCallba
     @Override public void onActivitySaveInstanceState(Activity a,Bundle b) { }
     @Override public void onActivityDestroyed(Activity a) { rendered.remove(a); }
     public static boolean followsHost(Context c) { return prefs(c).getBoolean("follow_host",true); }
-    public static void receive(Context c,Bundle extras) {
+    public static void receive(Context c,Bundle extras) { receive(c,extras,null); }
+    public static void receive(Context c,Bundle extras,String caller) {
         int mode=extras.getInt("appearanceMode",-1), accent=extras.getInt("appearanceAccent",-1);
         if(mode<0 || mode>2 || accent<0 || accent>4) throw new IllegalArgumentException("Invalid appearance");
-        prefs(c).edit().putInt("host_mode",mode).putInt("host_accent",accent).apply();
+        SharedPreferences.Editor edit=prefs(c).edit().putInt("host_mode",mode).putInt("host_accent",accent);
+        if(caller!=null)edit.putString("host_name",caller);edit.apply();
         if(followsHost(c)) refresh();
     }
     public static void showOptions(Activity a) {

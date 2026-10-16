@@ -25,6 +25,11 @@ final class DashUi {
     static TextView text(Activity a, LinearLayout page, String value, int size) {
         TextView t = new TextView(a); t.setText(value); t.setTextColor(RideStyle.TEXT); t.setTextSize(size); t.setTypeface(android.graphics.Typeface.create("sans-serif",android.graphics.Typeface.NORMAL)); t.setPadding(dp(a,8),dp(a,10),dp(a,8),dp(a,10)); page.addView(t); return t;
     }
+    static void actionIcon(Button b,String label) {
+        b.setCompoundDrawables(null,new RideGlyph(b.getContext(),label),null,null);b.setCompoundDrawablePadding(Math.round(2*b.getResources().getDisplayMetrics().density));
+        int pad=Math.round(4*b.getResources().getDisplayMetrics().density);
+        b.setGravity(android.view.Gravity.CENTER);b.setPadding(pad,pad,pad,pad);b.setTextSize(12);b.setMaxLines(2);
+    }
     static Button button(Activity a, LinearLayout p, String label, View.OnClickListener action) {
         Button b = new Button(a); b.setText(label); b.setAllCaps(false); b.setTextSize(16); b.setTypeface(android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.NORMAL));
         float density=a.getResources().getDisplayMetrics().density;
@@ -32,6 +37,6 @@ final class DashUi {
         android.graphics.drawable.GradientDrawable background=new android.graphics.drawable.GradientDrawable();
         background.setColor(RideStyle.RAISED);background.setCornerRadius(8*density);background.setStroke((int)density,RideStyle.LINE);b.setBackgroundTintList(null); b.setBackground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x286c94ff),background,null));
         b.setTextColor(new android.content.res.ColorStateList(new int[][]{new int[]{-android.R.attr.state_enabled},new int[]{}},new int[]{Color.rgb(100,117,130),RideStyle.TEXT}));
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(4,(int)(4*density),4,(int)(6*density));p.addView(b,lp);b.setOnClickListener(action);return b;
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(4,(int)(4*density),4,(int)(6*density));p.addView(b,lp);b.setOnClickListener(action);if(java.util.Arrays.asList("Setup","Record","Stop recording","Protect clip","Recordings").contains(label))actionIcon(b,label);return b;
     }
 }
