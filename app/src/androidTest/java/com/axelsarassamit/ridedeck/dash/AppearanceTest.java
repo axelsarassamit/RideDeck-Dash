@@ -53,9 +53,12 @@ public final class AppearanceTest {
                 Intent intent=new Intent(c,AppearanceActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 try(ActivityScenario<Activity> scenario=ActivityScenario.launch(intent)) {
                     for(int orientation:new int[]{ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE}) {
-                        scenario.onActivity(a->a.setRequestedOrientation(orientation));
+                        scenario.onActivity(a->{a.getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);a.setRequestedOrientation(orientation);});
                         Thread.sleep(900);InstrumentationRegistry.getInstrumentation().waitForIdleSync();
                         scenario.onActivity(a->{
+                            a.getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                            assertFalse("Phone locked during visual checks",a.getSystemService(android.app.KeyguardManager.class).isKeyguardLocked());
+                            assertTrue("App must be visible for visual checks",a.hasWindowFocus());
                             assertEquals(dark,RideAppearance.isDark(a));
                             assertEquals(AppearancePalette.background(dark),RideStyle.BACKGROUND);
                             assertEquals(AppearancePalette.text(dark),RideStyle.TEXT);
