@@ -6,7 +6,7 @@ import java.io.*;import java.util.*;import org.json.*;
 public final class AudioCheckActivity extends Activity {
     LinearLayout page,results;TextView status;final List<Button> starts=new ArrayList<>();volatile boolean cancelled,running;int pendingMode;
     AudioCheckRecorder.Result last;MediaPlayer player;
-    @Override public void onCreate(Bundle saved){super.onCreate(saved);page=DashUi.page(this);ScrollView scroll=new ScrollView(this);scroll.addView(page);setContentView(scroll);getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    @Override public void onCreate(Bundle saved){RideAppearance.prepare(this); super.onCreate(saved);page=DashUi.page(this);ScrollView scroll=new ScrollView(this);scroll.addView(page);setContentView(scroll);getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         DashUi.text(this,page,"Sound check",28);
         DashUi.text(this,page,"Eight-second local samples. Speak a short sentence for the voice test. During the combined test, speak into the headset and gently tap the phone case away from the headset to distinguish inputs. No samples are shared automatically.",16);
         DashUi.text(this,page,"This checks actual microphone routing, signal and Android silencing. Different phone capsules are not always exposed separately. A successful check does not enable live video mixing. Outdoor wind and engine sound still need a riding comparison.",15);

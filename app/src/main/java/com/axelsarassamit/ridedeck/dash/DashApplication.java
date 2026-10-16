@@ -29,7 +29,7 @@ public final class DashApplication extends Application implements Application.Ac
         return visible > 0 || SystemClock.elapsedRealtime() < rotationUntil;
     }
     @Override public void onCreate() {
-        super.onCreate(); instance = this;
+        super.onCreate(); RideAppearance.install(this); instance = this;
         powerPrefs = getSharedPreferences("charger-grace", MODE_PRIVATE);
         int boot = android.provider.Settings.Global.getInt(getContentResolver(), android.provider.Settings.Global.BOOT_COUNT, -1);
         long saved = boot >= 0 && powerPrefs.getInt("boot", -2) == boot ? powerPrefs.getLong("since", -1) : -1;

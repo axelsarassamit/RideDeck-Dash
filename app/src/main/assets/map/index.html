@@ -6,5 +6,7 @@ const planned=L.polyline([],{color:'#ffa44c',weight:5}).addTo(map);
 let marker,centered=false;
 function update(points,current){trace.setLatLngs(points);if(current){if(!marker)marker=L.circleMarker(current,{radius:8,color:'#f4f6fa'}).addTo(map);else marker.setLatLng(current);if(!centered){map.setView(current,16);centered=true;}}else if(points.length&&!centered){map.fitBounds(trace.getBounds(),{padding:[20,20]});centered=true;}}
 function plan(points){planned.setLatLngs(points);map.fitBounds(planned.getBounds(),{padding:[20,20]});}
+function setAppearance(dark){document.documentElement.style.colorScheme=dark?'dark':'light';document.body.classList.toggle('dark',dark);trace.setStyle({color:dark?'#90c8ff':'#126491'});planned.setStyle({color:dark?'#ffc464':'#875400'});}
+const appearance=document.createElement('style');appearance.textContent='html,body,#map{background:#f2f5fa}.dark #map{background:#0c111b}.dark .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.8) saturate(.6)}.dark .leaflet-control-attribution,.dark .leaflet-bar a{background:#141d2b;color:#f4f6fb}.dark .leaflet-control-attribution a{color:#90c8ff}';document.head.appendChild(appearance);
 map.on('click',e=>Dash.destination(e.latlng.lat,e.latlng.lng));
 </script></body></html>

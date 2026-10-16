@@ -22,7 +22,7 @@ public final class ClipsActivity extends Activity {
     private static volatile ClipDeletion.Result pendingDeletion;
     private TextView selectionSummary;
     private Button deleteSelected;
-    @Override public void onCreate(Bundle b) { super.onCreate(b);if(b!=null){selecting=b.getBoolean("selecting");ArrayList<String> saved=b.getStringArrayList("selected");if(saved!=null)selected.addAll(saved);}showList(); }
+    @Override public void onCreate(Bundle b) { RideAppearance.prepare(this); super.onCreate(b);if(b!=null){selecting=b.getBoolean("selecting");ArrayList<String> saved=b.getStringArrayList("selected");if(saved!=null)selected.addAll(saved);}showList(); }
     @Override protected void onSaveInstanceState(Bundle b){b.putBoolean("selecting",selecting);b.putStringArrayList("selected",new ArrayList<>(selected));super.onSaveInstanceState(b);}
 
     private void showList() {
@@ -49,7 +49,7 @@ public final class ClipsActivity extends Activity {
         for(File file:files) {
             String label=(ClipStore.protectedClip(file)?"Protected · ":"")+file.getName()+"\n"+new SimpleDateFormat("dd MMM HH:mm:ss",Locale.getDefault()).format(new Date(file.lastModified()))
                 +" · "+(file.length()/1024/1024)+" MB"+(ClipStore.finalized(file)?"":" · recording / unverified");
-            if(selecting){CheckBox box=new CheckBox(this);box.setText(label);box.setTextColor(DashUi.WHITE);box.setTextSize(16);box.setPadding(12,20,12,20);box.setMinHeight((int)(72*getResources().getDisplayMetrics().density));box.setChecked(selected.contains(file.getPath()));box.setOnCheckedChangeListener((button,on)->{if(on)selected.add(file.getPath());else selected.remove(file.getPath());updateSelection(files);});page.addView(box);continue;}
+            if(selecting){CheckBox box=new CheckBox(this);box.setText(label);box.setTextColor(RideStyle.TEXT);box.setTextSize(16);box.setPadding(12,20,12,20);box.setMinHeight((int)(72*getResources().getDisplayMetrics().density));box.setChecked(selected.contains(file.getPath()));box.setOnCheckedChangeListener((button,on)->{if(on)selected.add(file.getPath());else selected.remove(file.getPath());updateSelection(files);});page.addView(box);continue;}
             if(getIntent().getBooleanExtra("socialPick",false)){DashUi.button(this,page,label,v->{startActivity(new Intent(this,SocialEditorActivity.class).putExtra("clip",file.getPath()));finish();});continue;}
             Button clipButton=DashUi.button(this,page,label,v -> new AlertDialog.Builder(this).setTitle(file.getName()).setItems(new String[]{"Play","Share video","Save to gallery","Export with overlays","Save ride data","Show ride map",ClipStore.protectedClip(file)?"Allow loop recycling":"Keep clip","Delete clip","Social video export"},(dialog,item) -> {
                 if(item==0) play(file);

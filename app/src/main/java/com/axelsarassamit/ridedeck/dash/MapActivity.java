@@ -20,7 +20,7 @@ public final class MapActivity extends Activity {
     private File ride;
     private final Runnable tick=new Runnable(){@Override public void run(){updateMap();ui.postDelayed(this,2000);}};
     @Override public void onCreate(Bundle b) {
-        super.onCreate(b);
+        RideAppearance.prepare(this); super.onCreate(b);
         LinearLayout page=DashUi.page(this);setContentView(page);
         DashUi.text(this,page,"Map and route",25);
         info=DashUi.text(this,page,"Blue: recorded ride. Tap a destination to plan a motorcycle route. Online map uses OpenStreetMap.",16);
@@ -45,7 +45,7 @@ public final class MapActivity extends Activity {
                 if("www.openstreetmap.org".equals(r.getUrl().getHost())) startActivity(new Intent(Intent.ACTION_VIEW,r.getUrl()));
                 return true;
             }
-            @Override public void onPageFinished(WebView v,String url){loaded=true;updateMap();}
+            @Override public void onPageFinished(WebView v,String url){loaded=true;map.evaluateJavascript("setAppearance("+RideAppearance.isDark(MapActivity.this)+")",null);updateMap();}
         });
         map.loadUrl("https://dash.local/map/index.html");
         DashUi.button(this,page,"Back to dashboard",v -> finish());

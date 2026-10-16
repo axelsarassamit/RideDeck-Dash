@@ -16,19 +16,19 @@ import org.json.*;
 /** Explicit local backup of original clips overlapping a chosen time window. */
 public final class RecordingBackupActivity extends Activity {
     EditText day,from,to;CheckBox rear;TextView status;Button save;volatile boolean cancelled;
-    @Override public void onCreate(Bundle state){super.onCreate(state);
+    @Override public void onCreate(Bundle state){RideAppearance.prepare(this); super.onCreate(state);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         LinearLayout page=DashUi.page(this);ScrollView scroll=new ScrollView(this);scroll.addView(page);setContentView(scroll);
         DashUi.text(this,page,"Back up recordings",26);
         DashUi.text(this,page,"Copy complete originals that overlap this local time window, plus their ride logs. Originals stay in Dash. Copies may include footage before and after the selected times.",16);
         day=input(page,"Date · yyyy-MM-dd",state==null?new SimpleDateFormat("yyyy-MM-dd",Locale.ROOT).format(new Date()):state.getString("day"));
         from=input(page,"From · HH:mm",state==null?"00:00":state.getString("from"));to=input(page,"Until · HH:mm",state==null?"23:59":state.getString("to"));
-        rear=new CheckBox(this);rear.setText("Rear camera only");rear.setTextColor(DashUi.WHITE);rear.setChecked(state==null||state.getBoolean("rear",true));page.addView(rear);
+        rear=new CheckBox(this);rear.setText("Rear camera only");rear.setTextColor(RideStyle.TEXT);rear.setChecked(state==null||state.getBoolean("rear",true));page.addView(rear);
         status=DashUi.text(this,page,"Choose the window, then save a local copy.",16);
         save=DashUi.button(this,page,"Save originals and logs",v->backup());
         DashUi.button(this,page,"Back / cancel",v->finish());
     }
-    EditText input(LinearLayout page,String label,String value){DashUi.text(this,page,label,15);EditText field=new EditText(this);field.setSingleLine(true);field.setTextColor(DashUi.WHITE);field.setText(value);page.addView(field);return field;}
+    EditText input(LinearLayout page,String label,String value){DashUi.text(this,page,label,15);EditText field=new EditText(this);field.setSingleLine(true);field.setTextColor(RideStyle.TEXT);field.setText(value);page.addView(field);return field;}
     void backup(){
         if(Build.VERSION.SDK_INT<29){status.setText("Local backup requires Android 10 or newer");return;}
         if(RecordingService.running||RecordingService.finalizing){status.setText("Stop recording before backing up originals");return;}

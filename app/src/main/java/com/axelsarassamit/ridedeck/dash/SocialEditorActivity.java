@@ -23,7 +23,7 @@ public final class SocialEditorActivity extends Activity {
     long[] appliedRange; volatile int generation; int editorStrength, restoredStart=-1,restoredEnd=-1;
     Button export; final Handler handler=new Handler(Looper.getMainLooper());
     @Override public void onCreate(Bundle state) {
-        super.onCreate(state);
+        RideAppearance.prepare(this); super.onCreate(state);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if(state!=null){editorStrength=state.getInt("strength",0);restoredStart=state.getInt("draftStart",-1);restoredEnd=state.getInt("draftEnd",-1);}
         try {
@@ -46,7 +46,7 @@ public final class SocialEditorActivity extends Activity {
     }
     void layout() {
         boolean landscape = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
-        LinearLayout root = new LinearLayout(this); root.setBackgroundColor(DashUi.INK);
+        LinearLayout root = new LinearLayout(this); root.setBackgroundColor(RideStyle.BACKGROUND);
         root.setOrientation(landscape ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
         root.setOnApplyWindowInsetsListener((view,insets)->{
             if(Build.VERSION.SDK_INT>=30){android.graphics.Insets b=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());view.setPadding(b.left,b.top,b.right,b.bottom);}

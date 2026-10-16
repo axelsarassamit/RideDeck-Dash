@@ -46,7 +46,7 @@ public final class CapabilityActivity extends Activity {
         super.onStop();
     }
     @Override public void onCreate(Bundle state) {
-        super.onCreate(state);
+        RideAppearance.prepare(this); super.onCreate(state);
         TextView text = new TextView(this);
         text.setTextSize(20);
         text.setPadding(28, 32, 28, 32);

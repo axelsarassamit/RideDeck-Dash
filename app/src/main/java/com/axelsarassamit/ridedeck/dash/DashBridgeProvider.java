@@ -24,6 +24,9 @@ public final class DashBridgeProvider extends ContentProvider {
             throw new IllegalArgumentException("Dash bridge requires protocolVersion 1");
         Bundle result = new Bundle();
         result.putInt("protocolVersion", 1);
+        if("appearance".equals(method)) {
+            RideAppearance.receive(getContext(),extras); result.putBoolean("accepted",true); return result;
+        }
         if("pauseForVoice".equals(method)) {
             long now=SystemClock.elapsedRealtime();
             if(SESSIONS.isActive(now) && !SESSIONS.isOwnedBy(caller,now))
@@ -42,6 +45,13 @@ public final class DashBridgeProvider extends ContentProvider {
         else if ("stop".equals(method)) { SESSIONS.stop(caller); result.putBoolean("accepted", true); }
         else if (!"status".equals(method)) throw new IllegalArgumentException("Unknown Dash bridge method");
         result.putBoolean("rideActive", SESSIONS.isActive(SystemClock.elapsedRealtime()));
+        if ("status".equals(method)) {
+            result.putInt("appearanceMode", RideAppearance.mode(getContext()));
+            result.putInt("appearanceAccent", RideAppearance.accentIndex(getContext()));
+            result.putBoolean("appearanceFollowsHost", RideAppearance.followsHost(getContext()));
+            result.putInt("appearanceHostMode", RideAppearance.prefs(getContext()).getInt("host_mode",0));
+            result.putInt("appearanceHostAccent", RideAppearance.prefs(getContext()).getInt("host_accent",4));
+        }
         return result;
     }
     static String verifiedCaller(android.content.Context context, int uid) {

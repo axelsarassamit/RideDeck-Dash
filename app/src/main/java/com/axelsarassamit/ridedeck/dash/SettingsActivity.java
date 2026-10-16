@@ -2,7 +2,7 @@ package com.axelsarassamit.ridedeck.dash;
 import android.app.*;import android.os.*;import android.content.*;import android.media.*;import android.widget.*;import java.util.*;
 public final class SettingsActivity extends Activity {
  DashSettings settings;LinearLayout page;
- public void onCreate(Bundle b){super.onCreate(b);settings=new DashSettings(this);page=DashUi.page(this);ScrollView scroll=new ScrollView(this);scroll.addView(page);setContentView(scroll);
+ public void onCreate(Bundle b){RideAppearance.prepare(this); super.onCreate(b);settings=new DashSettings(this);page=DashUi.page(this);ScrollView scroll=new ScrollView(this);scroll.addView(page);setContentView(scroll);
   String section=getIntent().getStringExtra("section");if(section==null)section="video";
   DashUi.text(this,page,section.equals("audio")?"Microphones and audio":section.equals("automation")?"Drive automation":"Video and storage",28);
   DashUi.button(this,page,"Setup menu",v->new AlertDialog.Builder(this).setTitle("Ride setup").setItems(new String[]{"Video and storage","Microphones and audio","Drive automation","Video overlays"},(d,i)->{if(i==3){startActivity(new Intent(this,OverlaySettingsActivity.class));}else{getIntent().putExtra("section",new String[]{"video","audio","automation"}[i]);recreate();}}).show());
