@@ -18,7 +18,7 @@ public final class DashboardActivity extends Activity {
   LinearLayout header=new LinearLayout(this);header.setOrientation(LinearLayout.VERTICAL);header.setPadding(dp(16),dp(8),dp(16),dp(16));shade(header,true);stage.addView(header,new FrameLayout.LayoutParams(-1,-2,Gravity.TOP));
   LinearLayout titleRow=new LinearLayout(this);titleRow.setGravity(Gravity.CENTER_VERTICAL);header.addView(titleRow);
   TextView title=DashUi.text(this,titleRow,"RideDeck Dash",20);title.setTypeface(null,android.graphics.Typeface.BOLD);title.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
-  Button menu=DashUi.button(this,titleRow,"Setup",v->menu());menu.setLayoutParams(new LinearLayout.LayoutParams(dp(80),dp(56)));
+  Button menu=DashUi.button(this,titleRow,"Setup",v->menu());DashUi.actionIcon(menu,"Setup");menu.setLayoutParams(new LinearLayout.LayoutParams(dp(80),dp(56)));
   LinearLayout stateRow=new LinearLayout(this);stateRow.setGravity(Gravity.CENTER_VERTICAL);header.addView(stateRow);
   status=DashUi.text(this,stateRow,"Ready",14);status.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));status.setMaxLines(2);status.setEllipsize(android.text.TextUtils.TruncateAt.END);
   viewLabel=DashUi.text(this,stateRow,"",12);viewLabel.setGravity(Gravity.END);viewLabel.setTextColor(AppearancePalette.accent(RideAppearance.accentIndex(this),RideAppearance.isDark(this)));
@@ -29,7 +29,7 @@ public final class DashboardActivity extends Activity {
   start=DashUi.button(this,actions,"Record",v->{if(RecordingService.running){motionConsumed=true;consumedSession=DashBridgeProvider.SESSIONS.generation();command("STOP");}else request(true);});
   protect=DashUi.button(this,actions,"Protect clip",v->command("PROTECT"));
   Button recordings=DashUi.button(this,actions,"Recordings",v->startActivity(new Intent(this,ClipsActivity.class)));
-  for(Button button:new Button[]{start,protect,recordings}){LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(64),1);lp.setMargins(dp(4),0,dp(4),0);button.setLayoutParams(lp);button.setTextSize(12);}
+  for(Button button:new Button[]{start,protect,recordings}){DashUi.actionIcon(button,button.getText().toString());LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(64),1);lp.setMargins(dp(4),0,dp(4),0);button.setLayoutParams(lp);button.setTextSize(12);}
   details=new TextView(this);
   rear.setOnClickListener(v->fullView("front".equals(mode)?"front":"rear"));front.setOnClickListener(v->fullView("front"));
  }

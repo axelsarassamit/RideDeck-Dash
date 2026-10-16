@@ -37,6 +37,6 @@ final class DashUi {
         android.graphics.drawable.GradientDrawable background=new android.graphics.drawable.GradientDrawable();
         background.setColor(RideStyle.RAISED);background.setCornerRadius(8*density);background.setStroke((int)density,RideStyle.LINE);b.setBackgroundTintList(null); b.setBackground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x286c94ff),background,null));
         b.setTextColor(new android.content.res.ColorStateList(new int[][]{new int[]{-android.R.attr.state_enabled},new int[]{}},new int[]{Color.rgb(100,117,130),RideStyle.TEXT}));
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(4,(int)(4*density),4,(int)(6*density));p.addView(b,lp);b.setOnClickListener(action);if(java.util.Arrays.asList("Setup","Record","Stop recording","Protect clip","Recordings").contains(label))actionIcon(b,label);return b;
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(4,(int)(4*density),4,(int)(6*density));p.addView(b,lp);b.setOnClickListener(action);return b;
     }
 }
