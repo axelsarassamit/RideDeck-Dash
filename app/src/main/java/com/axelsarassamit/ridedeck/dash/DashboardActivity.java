@@ -31,6 +31,7 @@ public final class DashboardActivity extends Activity {
   protect=DashUi.button(this,actions,"Protect clip",v->command("PROTECT"));
   Button recordings=DashUi.button(this,actions,"Recordings",v->startActivity(new Intent(this,ClipsActivity.class)));
   for(Button button:new Button[]{start,protect,recordings}){DashUi.actionIcon(button,button.getText().toString());LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(64),1);lp.setMargins(dp(4),0,dp(4),0);button.setLayoutParams(lp);button.setTextSize(12);}
+  StartupReveal.show(this,b,"Dash",RideStyle.BACKGROUND,AppearancePalette.accent(RideAppearance.accentIndex(this),RideAppearance.isDark(this)),RideStyle.TEXT,()->RecordingService.running || getSystemService(android.media.AudioManager.class).getMode()!=android.media.AudioManager.MODE_NORMAL);
   details=new TextView(this);
   rear.setOnClickListener(v->fullView("front".equals(mode)?"front":"rear"));front.setOnClickListener(v->fullView("front"));
  }
