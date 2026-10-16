@@ -17,6 +17,7 @@ public final class DashboardActivity extends Activity {
   FrameLayout.LayoutParams inset=new FrameLayout.LayoutParams(dp(wide?144:100),dp(wide?81:178),Gravity.TOP|Gravity.END);inset.setMargins(0,dp(116),dp(16),0);stage.addView(front,inset);
   LinearLayout header=new LinearLayout(this);header.setOrientation(LinearLayout.VERTICAL);header.setPadding(dp(16),dp(8),dp(16),dp(16));shade(header,true);stage.addView(header,new FrameLayout.LayoutParams(-1,-2,Gravity.TOP));
   LinearLayout titleRow=new LinearLayout(this);titleRow.setGravity(Gravity.CENTER_VERTICAL);header.addView(titleRow);
+  ImageView brand=new ImageView(this);brand.setImageResource(R.drawable.ic_ridedeck_overlay);brand.setColorFilter(AppearancePalette.accent(RideAppearance.accentIndex(this),RideAppearance.isDark(this)));brand.setContentDescription("RideDeck");LinearLayout.LayoutParams brandSize=new LinearLayout.LayoutParams(dp(40),dp(40));brandSize.rightMargin=dp(8);titleRow.addView(brand,brandSize);
   TextView title=DashUi.text(this,titleRow,"RideDeck Dash",20);title.setTypeface(null,android.graphics.Typeface.BOLD);title.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
   Button menu=DashUi.button(this,titleRow,"Setup",v->menu());DashUi.actionIcon(menu,"Setup");menu.setLayoutParams(new LinearLayout.LayoutParams(dp(80),dp(56)));
   LinearLayout stateRow=new LinearLayout(this);stateRow.setGravity(Gravity.CENTER_VERTICAL);header.addView(stateRow);
