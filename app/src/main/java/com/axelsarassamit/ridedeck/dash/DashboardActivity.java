@@ -33,25 +33,42 @@ public final class DashboardActivity extends Activity {
   for(Button button:new Button[]{start,protect,recordings}){DashUi.actionIcon(button,button.getText().toString());LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(64),1);lp.setMargins(dp(4),0,dp(4),0);button.setLayoutParams(lp);button.setTextSize(12);}
   StartupReveal.show(this,b,"Dash",RideStyle.BACKGROUND,AppearancePalette.accent(RideAppearance.accentIndex(this),RideAppearance.isDark(this)),RideStyle.TEXT,()->RecordingService.running || getSystemService(android.media.AudioManager.class).getMode()!=android.media.AudioManager.MODE_NORMAL);
   details=new TextView(this);
+  if(b!=null){setupState=b.getBundle("setup_state");if(b.getBoolean("setup_open"))menu();}
   rear.setOnClickListener(v->fullView("front".equals(mode)?"front":"rear"));front.setOnClickListener(v->fullView("front"));
  }
  void shade(View view,boolean top){android.graphics.drawable.GradientDrawable bg=new android.graphics.drawable.GradientDrawable(top?android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM:android.graphics.drawable.GradientDrawable.Orientation.BOTTOM_TOP,new int[]{(RideStyle.BACKGROUND & 0x00ffffff)|0xf2000000,(RideStyle.BACKGROUND & 0x00ffffff)|0xcc000000,RideStyle.BACKGROUND & 0x00ffffff});view.setBackground(bg);}
  TextView readout(LinearLayout row,String value,int size){TextView t=new TextView(this);t.setText(value);t.setTextColor(RideStyle.TEXT);t.setTextSize(size);t.setTypeface(null,android.graphics.Typeface.BOLD);t.setGravity(Gravity.CENTER);t.setPadding(dp(4),dp(4),dp(4),dp(8));t.setBackgroundColor(android.graphics.Color.TRANSPARENT);LinearLayout.LayoutParams tile=new LinearLayout.LayoutParams(0,-2,1);tile.setMargins(dp(4),0,dp(4),0);row.addView(t,tile);return t;}
  void metric(TextView view,String primary,String label,int size){android.text.SpannableString text=new android.text.SpannableString(primary+"\n"+label);text.setSpan(new android.text.style.AbsoluteSizeSpan(size,true),0,primary.length(),0);text.setSpan(new android.text.style.AbsoluteSizeSpan(11,true),primary.length()+1,text.length(),0);text.setSpan(new android.text.style.ForegroundColorSpan(RideStyle.MUTED),primary.length()+1,text.length(),0);view.setText(text);}
  void openSettings(){closeAlignment(null);startActivity(new Intent(this,SettingsActivity.class));}
+ private Dialog setupDialog; private SetupMenu setupMenu; private Bundle setupState;
  void menu(){
-  final Dialog dialog=new Dialog(this);LinearLayout page=DashUi.page(this);ScrollView scroll=new ScrollView(this);scroll.addView(page);dialog.setContentView(scroll);
-  TextView heading=DashUi.text(this,page,"RideDeck Dash",24);heading.setTypeface(null,android.graphics.Typeface.BOLD);DashUi.text(this,page,"Make changes while parked",14);
-  menuSection(page,"RIDE");menuItem(page,"Recordings",dialog,()->startActivity(new Intent(this,ClipsActivity.class)));menuItem(page,"Map and route",dialog,()->startActivity(new Intent(this,MapActivity.class)));
-  menuItem(page,"Social video presets",dialog,()->startActivity(new Intent(this,SocialSettingsActivity.class)));
-  menuItem(page,"My saved settings",dialog,()->startActivity(new Intent(this,SocialSettingsActivity.class).putExtra("section","saved")));
-  menuItem(page,"Recording information",dialog,this::information);
-  menuSection(page,"CAMERA & RECORDING");menuItem(page,"Ride setup and presets",dialog,()->settingsSection("video"));menuItem(page,"Camera selection",dialog,()->{if(RecordingService.running){Toast.makeText(this,"Stop recording to change cameras",Toast.LENGTH_LONG).show();return;}new AlertDialog.Builder(this).setTitle("Cameras").setSingleChoiceItems(new String[]{"Rear + front","Rear only","Front only"},"dual".equals(mode)?0:"rear".equals(mode)?1:2,(d,n)->{mode=new String[]{"dual","rear","front"}[n];settings.put("mode",mode);closeAlignment(null);d.dismiss();}).setNegativeButton("Cancel",null).show();});
-  menuItem(page,alignment==null?"Open camera view":"Close camera view",dialog,()->{if(RecordingService.running){Toast.makeText(this,"Live view stays on while recording",Toast.LENGTH_SHORT).show();return;}if(alignment!=null){autoView=false;closeAlignment(null);}else{autoView=true;request(false);}});
-  menuItem(page,"Microphones and audio",dialog,()->settingsSection("audio"));menuItem(page,"Drive automation",dialog,()->settingsSection("automation"));menuItem(page,"Video overlays",dialog,()->startActivity(new Intent(this,OverlaySettingsActivity.class)));
-  menuItem(page,"Sound check",dialog,()->startActivity(new Intent(this,AudioCheckActivity.class)));
-  menuSection(page,"APP");menuItem(page,"Appearance",dialog,()->startActivity(new Intent(this,AppearanceActivity.class)));menuItem(page,"Updates and camera capabilities",dialog,()->startActivity(new Intent(this,CapabilityActivity.class)));DashUi.button(this,page,"Close menu",v->dialog.dismiss());
-  dialog.show();Window window=dialog.getWindow();if(window!=null){window.setBackgroundDrawableResource(android.R.color.transparent);window.setLayout(getResources().getConfiguration().orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE?dp(380):-1,-1);window.setGravity(Gravity.END);}
+  if(setupDialog!=null&&setupDialog.isShowing())return;
+  final Dialog dialog=new Dialog(this){@Override public void onBackPressed(){if(setupMenu==null||!setupMenu.back())super.onBackPressed();}};setupDialog=dialog;dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+  setupMenu=new SetupMenu(this,"RideDeck Dash",AppearancePalette.accent(RideAppearance.accentIndex(this),RideAppearance.isDark(this)),false,setupState,dialog::dismiss);
+  LinearLayout screen=setupMenu.add("screen","General","Screen & layout","Light or dark, colours and shared appearance");
+  menuItem(screen,"Appearance and colour theme",dialog,()->startActivity(new Intent(this,AppearanceActivity.class)));
+  LinearLayout audio=setupMenu.add("audio","General","Headset & sound","Microphone, audio input and sound check");
+  menuItem(audio,"Microphones and audio",dialog,()->settingsSection("audio"));menuItem(audio,"Sound check",dialog,()->startActivity(new Intent(this,AudioCheckActivity.class)));
+  LinearLayout power=setupMenu.add("power","General","Background & power","Battery limits and ride automation");
+  menuItem(power,"Drive automation and battery limits",dialog,()->settingsSection("automation"));
+  LinearLayout help=setupMenu.add("help","General","Help & app","Permissions, camera capabilities and updates");
+  menuItem(help,"Updates and camera capabilities",dialog,()->startActivity(new Intent(this,CapabilityActivity.class)));menuItem(help,"Recording information",dialog,this::information);
+  LinearLayout video=setupMenu.add("recording","Ride","Recording","Camera selection, quality, presets and storage");
+  menuItem(video,"Video and storage",dialog,()->settingsSection("video"));
+  menuItem(video,"Camera selection",dialog,()->{dialog.dismiss();if(RecordingService.running){Toast.makeText(this,"Stop recording to change cameras",Toast.LENGTH_LONG).show();return;}new AlertDialog.Builder(this).setTitle("Cameras").setSingleChoiceItems(new String[]{"Rear + front","Rear only","Front only"},"dual".equals(mode)?0:"rear".equals(mode)?1:2,(d,n)->{mode=new String[]{"dual","rear","front"}[n];settings.put("mode",mode);closeAlignment(null);d.dismiss();}).setNegativeButton("Cancel",null).show();});
+  menuItem(video,alignment==null?"Open camera view":"Close camera view",dialog,()->{dialog.dismiss();if(RecordingService.running){Toast.makeText(this,"Live view stays on while recording",Toast.LENGTH_SHORT).show();return;}if(alignment!=null){autoView=false;closeAlignment(null);}else{autoView=true;request(false);}});
+  LinearLayout overlays=setupMenu.add("overlays","Ride","Speed & overlays","GPS speed, data overlays and stabilisation");
+  menuItem(overlays,"Video overlays",dialog,()->startActivity(new Intent(this,OverlaySettingsActivity.class)));
+  menuItem(overlays,"Stabilisation and camera settings",dialog,()->settingsSection("video"));
+  LinearLayout companion=setupMenu.add("companion","Ride","RideDeck connection","Companion session and shared appearance");
+  DashUi.text(this,companion,"RideDeck and RideDeck Yamaha connect automatically when they start a ride. Background recording requires an authenticated companion session.",16);
+  menuItem(companion,"Shared appearance",dialog,()->startActivity(new Intent(this,AppearanceActivity.class)));
+  LinearLayout library=setupMenu.add("library","Ride","Recordings & sharing","Saved clips, social presets and saved settings");
+  menuItem(library,"Recordings",dialog,()->startActivity(new Intent(this,ClipsActivity.class)));menuItem(library,"Map and route",dialog,()->startActivity(new Intent(this,MapActivity.class)));
+  menuItem(library,"Social video presets",dialog,()->startActivity(new Intent(this,SocialSettingsActivity.class)));menuItem(library,"My saved settings",dialog,()->startActivity(new Intent(this,SocialSettingsActivity.class).putExtra("section","saved")));
+  dialog.setContentView(setupMenu.view());
+  dialog.setOnDismissListener(d->{setupState=new Bundle();setupMenu.save(setupState);setupDialog=null;});
+  dialog.show();Window window=dialog.getWindow();if(window!=null){window.setBackgroundDrawableResource(android.R.color.transparent);window.setLayout(-1,-1);}setupMenu.show();
  }
  void information(){Dialog dialog=new Dialog(this);LinearLayout page=DashUi.page(this);ScrollView scroll=new ScrollView(this);scroll.addView(page);dialog.setContentView(scroll);TextView title=DashUi.text(this,page,"Recording information",24);title.setTypeface(null,android.graphics.Typeface.BOLD);
   String[] values=details.getText().toString().split("\\n");String[] labels={"CAMERAS","PRESET & LOOP STORAGE","SPACE AVAILABLE","MICROPHONE","POWER & RIDE SESSION","POWER REQUIREMENT"};
@@ -61,7 +78,7 @@ public final class DashboardActivity extends Activity {
   for(int n=cameraLines;n<values.length;n++){menuSection(page,labels[Math.min(n-cameraLines+1,labels.length-1)]);DashUi.text(this,page,values[n],17);}
   DashUi.button(this,page,"Close",v->dialog.dismiss());dialog.show();if(dialog.getWindow()!=null){dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);dialog.getWindow().setLayout(Math.min(getResources().getDisplayMetrics().widthPixels,dp(440)),-2);}}
  void menuSection(LinearLayout page,String title){TextView t=DashUi.text(this,page,title,12);t.setTextColor(AppearancePalette.accent(RideAppearance.accentIndex(this),RideAppearance.isDark(this)));t.setPadding(dp(10),dp(24),dp(10),dp(8));}
- void menuItem(LinearLayout page,String label,Dialog dialog,Runnable action){DashUi.button(this,page,label,v->{dialog.dismiss();action.run();});}
+ void menuItem(LinearLayout page,String label,Dialog dialog,Runnable action){DashUi.button(this,page,label,v->action.run());}
  void settingsSection(String section){closeAlignment(null);startActivity(new Intent(this,SettingsActivity.class).putExtra("section",section));}
  void startIdleGps(){if(idleLocations!=null||checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)return;idleLocations=getSystemService(LocationManager.class);try{idleLocations.requestLocationUpdates(LocationManager.GPS_PROVIDER,1000,0,idleGps);}catch(Exception ignored){idleLocations=null;}}
  void fullView(String camera){ImageView big=new ImageView(this);big.setScaleType(ImageView.ScaleType.FIT_CENTER);big.setBackgroundColor(android.graphics.Color.BLACK);big.setMinimumHeight(dp(getResources().getConfiguration().orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE?200:500));AlertDialog dialog=new AlertDialog.Builder(this).setTitle(camera+" live view").setView(big).setPositiveButton("Close",null).create();
@@ -90,12 +107,13 @@ public final class DashboardActivity extends Activity {
    if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED){permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION);permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);}if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)permissions.add(Manifest.permission.POST_NOTIFICATIONS);}
   if(Build.VERSION.SDK_INT>=31&&RecordingAudioPolicy.bluetooth(settings.text("audio","off"))&&checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)!=PackageManager.PERMISSION_GRANTED)permissions.add(Manifest.permission.BLUETOOTH_CONNECT);
   if(!permissions.isEmpty()){requestPermissions(permissions.toArray(new String[0]),17);return;}ready();}
- protected void onSaveInstanceState(Bundle b){b.putBoolean("motionConsumed",motionConsumed);b.putLong("consumedSession",consumedSession);super.onSaveInstanceState(b);}
+ protected void onSaveInstanceState(Bundle b){if(setupMenu!=null){Bundle saved=new Bundle();setupMenu.save(saved);b.putBundle("setup_state",saved);}b.putBoolean("setup_open",setupDialog!=null&&setupDialog.isShowing());b.putBoolean("motionConsumed",motionConsumed);b.putLong("consumedSession",consumedSession);super.onSaveInstanceState(b);}
  public void onRequestPermissionsResult(int r,String[] p,int[] g){super.onRequestPermissionsResult(r,p,g);if(r==17&&checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED){if(pendingRecord&&!"off".equals(settings.text("audio","off"))&&checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){Toast.makeText(this,"Choose Audio off or allow microphone recording",Toast.LENGTH_LONG).show();return;}ready();}}
  void ready(){if(!visible)return;if(!pendingRecord&&alignment!=null)return;if(pendingRecord){starting=true;closeAlignment(this::begin);}else{PreviewFrames.rear=null;PreviewFrames.front=null;PreviewFrames.message="Opening cameras";alignment=new AlignmentPreview(this);alignment.start(mode);}}
  void closeAlignment(Runnable after){AlignmentPreview old=alignment;alignment=null;if(old!=null){closingView=true;old.close(()->{closingView=false;if(after!=null)after.run();});}else if(after!=null)after.run();}
  void begin(){if(!visible||RecordingService.finalizing){starting=false;return;}PreviewFrames.rear=null;PreviewFrames.front=null;Intent i=new Intent(this,RecordingService.class).setAction("START").putExtra("mode",mode).putExtra("rotation",getWindowManager().getDefaultDisplay().getRotation());try{startForegroundService(i);ui.postDelayed(()->starting=false,1000);}catch(Exception e){starting=false;Toast.makeText(this,e.getMessage(),Toast.LENGTH_LONG).show();}}
  void command(String action){if(RecordingService.running)startService(new Intent(this,RecordingService.class).setAction(action));}
  protected void onStart(){super.onStart();if(!RecordingService.running)mode=settings.text("mode","dual");visible=true;PreviewFrames.enabled=true;ui.post(refresh);}
+ protected void onDestroy(){if(setupDialog!=null)setupDialog.dismiss();super.onDestroy();}
  protected void onStop(){if(idleLocations!=null){idleLocations.removeUpdates(idleGps);idleLocations=null;}idlePosition=null;visible=false;PreviewFrames.enabled=false;closeAlignment(null);ui.removeCallbacks(refresh);super.onStop();}
 }

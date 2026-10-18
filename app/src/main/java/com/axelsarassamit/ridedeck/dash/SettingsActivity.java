@@ -5,7 +5,6 @@ public final class SettingsActivity extends Activity {
  public void onCreate(Bundle b){RideAppearance.prepare(this); super.onCreate(b);settings=new DashSettings(this);page=DashUi.page(this);ScrollView scroll=new ScrollView(this);scroll.addView(page);setContentView(scroll);
   String section=getIntent().getStringExtra("section");if(section==null)section="video";
   DashUi.text(this,page,section.equals("audio")?"Microphones and audio":section.equals("automation")?"Drive automation":"Video and storage",28);
-  DashUi.button(this,page,"Setup menu",v->new AlertDialog.Builder(this).setTitle("Ride setup").setItems(new String[]{"Video and storage","Microphones and audio","Drive automation","Video overlays"},(d,i)->{if(i==3){startActivity(new Intent(this,OverlaySettingsActivity.class));}else{getIntent().putExtra("section",new String[]{"video","audio","automation"}[i]);recreate();}}).show());
   DashUi.text(this,page,"Changes apply to the next recording. Unsupported camera combinations stop with a clear message. Protected clips count toward your storage limit.",16);
   if(section.equals("automation")){
   choice("Automatic ride recording","autostart",new int[]{1,0},new String[]{"On","Off"},1);
