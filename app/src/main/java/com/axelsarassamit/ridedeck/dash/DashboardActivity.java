@@ -1,7 +1,7 @@
 package com.axelsarassamit.ridedeck.dash;
 import android.Manifest;import android.app.*;import android.content.*;import android.content.pm.PackageManager;import android.location.*;import android.os.*;import android.widget.*;import android.view.*;import java.util.*;
 public final class DashboardActivity extends Activity {
- TextView status,speed,details,viewLabel,gpsCard,stabilizationCard;Button start,protect;ImageView rear,front;DashSettings settings;AlignmentPreview alignment;
+ TextView status,speed,details,viewLabel,gpsCard,stabilizationCard;Button start,protect,stopAction;ImageView rear,front;DashSettings settings;AlignmentPreview alignment;
  LocationManager idleLocations;Location idlePosition;static boolean motionConsumed;static long consumedSession;final DriveAutomation drive=new DriveAutomation();
  final LocationListener idleGps=new LocationListener(){public void onLocationChanged(Location p){idlePosition=new Location(p);}public void onProviderDisabled(String p){idlePosition=null;}public void onProviderEnabled(String p){}public void onStatusChanged(String p,int s,Bundle b){}};
  String mode="dual";boolean visible,pendingRecord,autoView=true,starting,closingView;long storageChecked;String storageSummary="";final Handler ui=new Handler(Looper.getMainLooper());
@@ -9,35 +9,43 @@ public final class DashboardActivity extends Activity {
  int dp(int n){return (int)(n*getResources().getDisplayMetrics().density);}
  public void onCreate(Bundle b){RideAppearance.prepare(this); super.onCreate(b);settings=new DashSettings(this);mode=settings.text("mode","dual");if(b!=null){motionConsumed=b.getBoolean("motionConsumed");consumedSession=b.getLong("consumedSession");}
   boolean wide=getResources().getConfiguration().orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE;
-  FrameLayout stage=new FrameLayout(this);stage.setBackgroundColor(android.graphics.Color.BLACK);setContentView(stage);
-  stage.setOnApplyWindowInsetsListener((v,insets)->{if(Build.VERSION.SDK_INT>=30){android.graphics.Insets bars=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());stage.setPadding(bars.left,bars.top,bars.right,bars.bottom);}else stage.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});
+  LinearLayout shell=DashUi.page(this);shell.setPadding(dp(12),dp(8),dp(12),dp(8));setContentView(shell);
+  LinearLayout titleRow=new LinearLayout(this);titleRow.setGravity(Gravity.CENTER_VERTICAL);shell.addView(titleRow,new LinearLayout.LayoutParams(-1,dp(56)));
+  VelocityBrandView brand=new VelocityBrandView(this);brand.setContentDescription("RideDeck Dash");titleRow.addView(brand,new LinearLayout.LayoutParams(dp(88),dp(48)));
+  View spacer=new View(this);titleRow.addView(spacer,new LinearLayout.LayoutParams(0,1,1));
+  Button menu=DashUi.button(this,titleRow,"Setup",v->menu());menu.setBackgroundColor(android.graphics.Color.TRANSPARENT);menu.setTextSize(13);menu.setTextColor(AppearancePalette.accent(4,RideAppearance.isDark(this)));menu.setLayoutParams(new LinearLayout.LayoutParams(dp(72),dp(48)));
+  LinearLayout body=new LinearLayout(this);body.setOrientation(wide?LinearLayout.HORIZONTAL:LinearLayout.VERTICAL);shell.addView(body,new LinearLayout.LayoutParams(-1,0,1));
+  FrameLayout stage=new FrameLayout(this);stage.setTag("roadline_camera_frame");DashUi.card(stage,android.graphics.Color.BLACK,12);stage.setClipToOutline(true);
+  body.addView(stage,wide?new LinearLayout.LayoutParams(0,-1,1):new LinearLayout.LayoutParams(-1,0,1));
   rear=new ImageView(this);rear.setContentDescription("Rear camera live view");rear.setScaleType(ImageView.ScaleType.FIT_CENTER);stage.addView(rear,new FrameLayout.LayoutParams(-1,-1));
-  // Keep the complete camera frame visible so alignment never hides recorded edges.
-  front=new ImageView(this);front.setContentDescription("Front camera live view");front.setScaleType(ImageView.ScaleType.FIT_CENTER);DashUi.card(front,android.graphics.Color.BLACK,10);front.setClipToOutline(true);
-  FrameLayout.LayoutParams inset=new FrameLayout.LayoutParams(dp(wide?144:100),dp(wide?81:178),Gravity.TOP|Gravity.END);inset.setMargins(0,dp(116),dp(16),0);stage.addView(front,inset);
-  LinearLayout header=new LinearLayout(this);header.setOrientation(LinearLayout.VERTICAL);header.setPadding(dp(16),dp(8),dp(16),dp(16));shade(header,true);stage.addView(header,new FrameLayout.LayoutParams(-1,-2,Gravity.TOP));
-  LinearLayout titleRow=new LinearLayout(this);titleRow.setGravity(Gravity.CENTER_VERTICAL);header.addView(titleRow);
-  VelocityBrandView brand=new VelocityBrandView(this);brand.setContentDescription("RideDeck");LinearLayout.LayoutParams brandSize=new LinearLayout.LayoutParams(dp(96),dp(64));brandSize.rightMargin=dp(8);titleRow.addView(brand,brandSize);
-  TextView title=DashUi.text(this,titleRow,"RideDeck Dash",14);title.setTypeface(null,android.graphics.Typeface.BOLD);title.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
-  Button menu=DashUi.button(this,titleRow,"Setup",v->menu());DashUi.actionIcon(menu,"Setup");menu.setLayoutParams(new LinearLayout.LayoutParams(dp(80),dp(56)));
-  LinearLayout stateRow=new LinearLayout(this);stateRow.setGravity(Gravity.CENTER_VERTICAL);header.addView(stateRow);
-  status=DashUi.text(this,stateRow,"Ready",14);status.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));status.setMaxLines(2);status.setEllipsize(android.text.TextUtils.TruncateAt.END);
-  viewLabel=DashUi.text(this,stateRow,"",12);viewLabel.setGravity(Gravity.END);viewLabel.setTextColor(AppearancePalette.accent(RideAppearance.accentIndex(this),RideAppearance.isDark(this)));
-  LinearLayout bottom=new LinearLayout(this);bottom.setOrientation(wide?LinearLayout.HORIZONTAL:LinearLayout.VERTICAL);bottom.setGravity(Gravity.CENTER_VERTICAL);bottom.setPadding(dp(16),dp(24),dp(16),dp(12));bottom.setBackgroundColor(android.graphics.Color.TRANSPARENT);stage.addView(bottom,new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));
-  LinearLayout telemetry=new LinearLayout(this);telemetry.setGravity(Gravity.CENTER_VERTICAL);bottom.addView(telemetry,new LinearLayout.LayoutParams(wide?0:-1,-2,wide?1:0));
-  speed=readout(telemetry,"?\nkm/h",wide?28:34);gpsCard=readout(telemetry,"GPS\nWaiting",14);stabilizationCard=readout(telemetry,"MAX\nStabilization",14);
-  LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER_VERTICAL);bottom.addView(actions,new LinearLayout.LayoutParams(wide?dp(330):-1,dp(72)));
+  front=new ImageView(this);front.setContentDescription("Front camera live view");front.setScaleType(ImageView.ScaleType.FIT_CENTER);DashUi.card(front,android.graphics.Color.BLACK,8);front.setClipToOutline(true);
+  FrameLayout.LayoutParams inset=new FrameLayout.LayoutParams(dp(wide?120:88),dp(wide?68:132),Gravity.TOP|Gravity.END);inset.setMargins(0,dp(12),dp(12),0);stage.addView(front,inset);
+  LinearLayout readouts=new LinearLayout(this);readouts.setOrientation(LinearLayout.VERTICAL);readouts.setPadding(dp(8),dp(4),dp(8),dp(8));
+  // Only a subtle shadow is applied to telemetry; the camera content stays visible.
+  stage.addView(readouts,new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));
+  LinearLayout stateRow=new LinearLayout(this);readouts.addView(stateRow);
+  status=new TextView(this);status.setTextColor(android.graphics.Color.WHITE);status.setShadowLayer(dp(2),0,1,android.graphics.Color.BLACK);status.setTextSize(12);status.setMaxLines(2);status.setEllipsize(android.text.TextUtils.TruncateAt.END);stateRow.addView(status,new LinearLayout.LayoutParams(0,-2,1));
+  viewLabel=new TextView(this);viewLabel.setTextSize(11);viewLabel.setTextColor(android.graphics.Color.WHITE);stateRow.addView(viewLabel);
+  LinearLayout telemetry=new LinearLayout(this);readouts.addView(telemetry);
+  speed=readout(telemetry,"?\nkm/h",22);gpsCard=readout(telemetry,"GPS\nWaiting",12);stabilizationCard=readout(telemetry,"MAX\nStabilization",12);
+  LinearLayout controls=new LinearLayout(this);controls.setOrientation(LinearLayout.VERTICAL);controls.setGravity(Gravity.CENTER);
+  body.addView(controls,wide?new LinearLayout.LayoutParams(dp(270),-1):new LinearLayout.LayoutParams(-1,-2));
+  LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER_VERTICAL);controls.addView(actions,new LinearLayout.LayoutParams(-1,dp(64)));
   start=DashUi.button(this,actions,"Record",v->{if(RecordingService.running){motionConsumed=true;consumedSession=DashBridgeProvider.SESSIONS.generation();command("STOP");}else request(true);});
-  protect=DashUi.button(this,actions,"Protect clip",v->command("PROTECT"));
-  Button recordings=DashUi.button(this,actions,"Recordings",v->startActivity(new Intent(this,ClipsActivity.class)));
-  for(Button button:new Button[]{start,protect,recordings}){DashUi.actionIcon(button,button.getText().toString());LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(64),1);lp.setMargins(dp(4),0,dp(4),0);button.setLayoutParams(lp);button.setTextSize(12);}
+  Button stop=DashUi.button(this,actions,"Stop",v->{motionConsumed=true;consumedSession=DashBridgeProvider.SESSIONS.generation();command("STOP");});
+  protect=DashUi.button(this,actions,"Protect",v->command("PROTECT"));
+  for(Button button:new Button[]{start,stop,protect}){LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(56),1);lp.setMargins(dp(3),dp(4),dp(3),0);button.setLayoutParams(lp);button.setTextSize(13);button.setPadding(dp(3),0,dp(3),0);button.setTextColor(android.graphics.Color.WHITE);button.setBackground(RideStyle.surface(this,0xff0665db,8,false));}
+  stopAction=stop;stop.setContentDescription("Stop recording");
+  LinearLayout footer=new LinearLayout(this);controls.addView(footer,new LinearLayout.LayoutParams(-1,dp(56)));
+  Button recordings=DashUi.button(this,footer,"Recordings",v->startActivity(new Intent(this,ClipsActivity.class)));
+  Button settingsButton=DashUi.button(this,footer,"Setup",v->menu());
+  for(Button button:new Button[]{recordings,settingsButton}){button.setLayoutParams(new LinearLayout.LayoutParams(0,dp(56),1));button.setTextSize(13);button.setBackgroundColor(android.graphics.Color.TRANSPARENT);}
   StartupReveal.show(this,b,"Dash",RideStyle.BACKGROUND,AppearancePalette.accent(RideAppearance.accentIndex(this),RideAppearance.isDark(this)),RideStyle.TEXT,()->RecordingService.running || getSystemService(android.media.AudioManager.class).getMode()!=android.media.AudioManager.MODE_NORMAL);
-  start.setTextColor(AppearancePalette.onAccent(RideAppearance.isDark(this)));start.setBackground(RideStyle.surface(this,AppearancePalette.accent(2,RideAppearance.isDark(this)),14,false));
+
   details=new TextView(this);
   if(b!=null){setupState=b.getBundle("setup_state");if(b.getBoolean("setup_open"))menu();}
   rear.setOnClickListener(v->fullView("front".equals(mode)?"front":"rear"));front.setOnClickListener(v->fullView("front"));
  }
- void shade(View view,boolean top){android.graphics.drawable.GradientDrawable bg=new android.graphics.drawable.GradientDrawable(top?android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM:android.graphics.drawable.GradientDrawable.Orientation.BOTTOM_TOP,new int[]{(RideStyle.BACKGROUND & 0x00ffffff)|0xf2000000,(RideStyle.BACKGROUND & 0x00ffffff)|0xcc000000,RideStyle.BACKGROUND & 0x00ffffff});view.setBackground(bg);}
  TextView readout(LinearLayout row,String value,int size){TextView t=new TextView(this);t.setText(value);t.setTextColor(android.graphics.Color.WHITE);t.setShadowLayer(dp(3),0,dp(1),android.graphics.Color.BLACK);t.setTextSize(size);t.setTypeface(null,android.graphics.Typeface.BOLD);t.setGravity(Gravity.CENTER);t.setPadding(dp(4),dp(4),dp(4),dp(8));t.setBackgroundColor(android.graphics.Color.TRANSPARENT);LinearLayout.LayoutParams tile=new LinearLayout.LayoutParams(0,-2,1);tile.setMargins(dp(4),0,dp(4),0);row.addView(t,tile);return t;}
  void metric(TextView view,String primary,String label,int size){android.text.SpannableString text=new android.text.SpannableString(primary+"\n"+label);text.setSpan(new android.text.style.AbsoluteSizeSpan(size,true),0,primary.length(),0);text.setSpan(new android.text.style.AbsoluteSizeSpan(11,true),primary.length()+1,text.length(),0);text.setSpan(new android.text.style.ForegroundColorSpan(android.graphics.Color.WHITE),primary.length()+1,text.length(),0);view.setText(text);}
  void openSettings(){closeAlignment(null);startActivity(new Intent(this,SettingsActivity.class));}
@@ -101,7 +109,8 @@ public final class DashboardActivity extends Activity {
 
   if(SystemClock.elapsedRealtime()-storageChecked>3000){long used=0;for(java.io.File file:new ClipStore(this).clips())used+=file.length();storageSummary=String.format(Locale.ROOT,"%.1f GB used · %.1f GB phone free",used/1073741824.0,getFilesDir().getUsableSpace()/1073741824.0);storageChecked=SystemClock.elapsedRealtime();}
   details.setText((RecordingService.running?RecordingService.cameraStatus:("dual".equals(mode)?"Rear + front":"front".equals(mode)?"Front only":"Rear only")+" · "+settings.height()+"p / 30 fps")+"\n"+settings.text("preset","Balanced")+" · "+settings.number("clip",128)+" MB clips · "+settings.number("quota",8)+" GB limit\n"+storageSummary+"\n"+(RecordingService.running?RecordingService.audioStatus:"Microphone: "+AudioInputs.savedLabel(this,settings))+"\nBattery "+percent+"%"+(plugged?" · charging":" · charger grace "+DashApplication.chargerSecondsLeft()+"s remaining")+" · "+(DashBridgeProvider.SESSIONS.isActive(SystemClock.elapsedRealtime())?"RideDeck session active":"Standalone")+(power?"":"\nConnect charger; 30% minimum and 5-minute battery limit"));
-  String recordLabel=RecordingService.running?"Stop recording":"Record";if(!start.getText().toString().equals(recordLabel)){start.setText(recordLabel);DashUi.actionIcon(start,recordLabel);}start.setEnabled((power||RecordingService.running)&&!starting&&!closingView&&!RecordingService.finalizing);protect.setEnabled(RecordingService.running&&!RecordingService.finalizing);
+  stopAction.setEnabled(RecordingService.running&&!RecordingService.finalizing);stopAction.setAlpha(stopAction.isEnabled()?1f:0.45f);status.setTextColor(RecordingService.running?0xffff8340:android.graphics.Color.WHITE);
+  String recordLabel=RecordingService.running?"Stop recording":"Record";if(!start.getText().toString().equals(recordLabel)){start.setText(recordLabel);}start.setEnabled((power||RecordingService.running)&&!starting&&!closingView&&!RecordingService.finalizing);protect.setEnabled(RecordingService.running&&!RecordingService.finalizing);protect.setAlpha(protect.isEnabled()?1f:0.45f);
  }
  void request(boolean recording){pendingRecord=recording;ArrayList<String> permissions=new ArrayList<>();if(checkSelfPermission(Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED)permissions.add(Manifest.permission.CAMERA);
   if(recording||settings.number("autostart",1)==1){if(!"off".equals(settings.text("audio","off"))&&checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED)permissions.add(Manifest.permission.RECORD_AUDIO);

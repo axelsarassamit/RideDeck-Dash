@@ -1,4 +1,6 @@
-# RideDeck Dash 0.8.10
+# RideDeck Dash 0.8.11
+
+The complete approved Roadline layout replaces the earlier styling-only pass. The camera now occupies a fitted, rounded viewport beneath a compact header. Transparent telemetry stays over the footage. Record, Stop and Protect are grouped below, with Recordings and Setup in a separate secondary row. Recording status remains amber, and unavailable actions are visibly disabled. Native dialogs and appearance themes use the same palette as the screens.
 
 The shared Velocity R and Roadline identity now appears in the launcher, cockpit and startup sequence. Light and Dark palettes match the RideDeck family. Recording remains amber; speed, GPS and stabilisation stay transparent over the camera view. Initial GPS speed is unavailable until measured, rather than briefly showing zero. Existing recording, storage, power and companion-authentication policies are unchanged. Live riding, call audio and long recording reliability are not established by visual checks.
 
