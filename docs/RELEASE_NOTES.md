@@ -1,4 +1,8 @@
-# RideDeck Dash 0.8.9
+# RideDeck Dash 0.8.10
+
+The shared Velocity R and Roadline identity now appears in the launcher, cockpit and startup sequence. Light and Dark palettes match the RideDeck family. Recording remains amber; speed, GPS and stabilisation stay transparent over the camera view. Initial GPS speed is unavailable until measured, rather than briefly showing zero. Existing recording, storage, power and companion-authentication policies are unchanged. Live riding, call audio and long recording reliability are not established by visual checks.
+
+## Previous shared menu update
 
 The approved category list and section tabs now use the same navigation component across Standard, Yamaha and Dash.
 

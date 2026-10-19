@@ -18,7 +18,7 @@
         <package android:name="com.axelsarassamit.gx12" />
         <package android:name="com.axelsarassamit.gx12.yamaha" />
     </queries>
-    <application android:name=".DashApplication" android:label="RideDeck Dash" android:icon="@drawable/ic_dash" android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:usesCleartextTraffic="false" android:theme="@style/RideDeckTheme">
+    <application android:name=".DashApplication" android:label="RideDeck Dash" android:icon="@mipmap/velocity_launcher" android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:usesCleartextTraffic="false" android:theme="@style/RideDeckTheme">
         <activity android:name=".AppearanceActivity" android:exported="false" />
         <service android:name=".RecordingService" android:exported="false" android:foregroundServiceType="camera|location|microphone" />
         <service android:name=".CompanionRecordingService" android:exported="true" />

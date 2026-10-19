@@ -17,7 +17,7 @@ public final class RideAppearance implements Application.ActivityLifecycleCallba
     private RideAppearance() { }
     public static SharedPreferences prefs(Context c) { return c.getSharedPreferences("ride_appearance",Context.MODE_PRIVATE); }
     public static int mode(Context c) { return prefs(c).getInt(followsHost(c) ? "host_mode" : "appearance_mode",0); }
-    public static int accentIndex(Context c) { return prefs(c).getInt(followsHost(c) ? "host_accent" : "color_theme",4); }
+    public static int accentIndex(Context c) { return prefs(c).getInt(followsHost(c) ? "host_accent" : "color_theme",2); }
     public static boolean isDark(Context c) {
         boolean system = (c.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         return AppearancePalette.dark(mode(c),system);
