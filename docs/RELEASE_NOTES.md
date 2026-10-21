@@ -1,9 +1,11 @@
-# RideDeck Dash 0.9.0
+# RideDeck Dash 0.10.0
 
-Select several clips in Recordings to export separate social videos or merge them into one. The social studio includes clip order, individual trims, platform presets and a playable preview. Original recordings are preserved.
+One timeline-based social video editor replaces the previous single-clip and overlay-export editors. Edit one recording or selected clips in the same screen, with a large preview, thumbnail timeline, trim handles, split, duplicate, reorder, remove, undo/redo and saved drafts. Portrait and landscape use dedicated layouts.
 
-Front-camera picture-in-picture keeps the rear camera as the main picture, with a small rounded front view in a selectable corner. Adjust its size and timing, or keep the whole rear picture instead of filling the output. Front clips are matched within the same ride by capture timestamps, including across clip rollovers. Missing front sections remain hidden. Front audio is muted; the main clip supplies sound. Timestamp matching may need manual adjustment and is not a claim of frame-accurate camera synchronization.
+Tools include social formats and framing, movable rounded front-camera PiP, configurable ride overlays, timed text, imported music with volume/fades, picture adjustments and integrated experimental stabilization. Preview and export share the same recipe. The RideDeck logo remains mandatory. Original recordings are preserved.
 
-The live front-camera inset now fills its rounded frame without black borders, with a small edge crop when its shape differs from the camera image. Existing Roadline styling and recording policies are retained.
+Stabilization offers Off, Gentle, Strong and Maximum and analyzes the selected main clips before preview. Stronger modes crop more. This integrates the existing correction engine; it does not guarantee elimination of road vibration, blur or captured frame gaps.
 
-Projects support up to 30 clips and 30 minutes of selected output. Leaving an export cancels its unfinished item; completed copies remain saved. Multi-clip stabilization is not added by this release. The existing single-clip stabilization editor remains available separately.
+Recordings now show video thumbnails, with newest/oldest/name/file-size sorting and rear/front/protected filters. Multi-selection remains available. Thumbnail decoding pauses while recording.
+
+Export one merged social video or separate copies. Drafts reference original files and are not backups. Music uses a local file; platform music and posting remain in the social app. The moving map uses recorded GPS trace. Keep Dash open while exporting; completed copies survive cancellation of a later batch item.

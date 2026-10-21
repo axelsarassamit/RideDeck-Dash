@@ -1,5 +1,15 @@
 # RideDeck Dash validation
 
+## 0.10.0 unified editor and recording library, 2026-10-21
+
+- Replaced the old single-clip and overlay-export activities with one non-destructive timeline editor. Added source trim handles, split/duplicate/reorder/remove, session undo/redo, private persistent drafts, crop/pan, free PiP position, grouped overlay layout, timed text, imported music, gain/fades and colour adjustments. Existing experimental stabilization now runs in the shared preview/export composition.
+- Fifty-nine unit tests, debug and original-signer release builds, and both lint variants passed. The signed replacement preserves the existing package and production recordings/settings on Xiaomi 14T Pro, Android 16.
+- Eight phone tests use generated footage: real merge and PiP gap/rollover exports, batch gallery copies, rendered portrait/landscape previews and recreation, split/undo/redo with persistent draft reload, decoded recording thumbnails with sort/filter restoration, timed text with grayscale adjustment, and integrated stabilization plus cancellation. Audio decoding verified the imported 660 Hz music tone with original volume zero and a quieter fade-in, not merely the presence of an audio track.
+- Phone tests caught and corrected a recycled title bitmap at composition item changes. Screenshots also prompted compact clip action rows and a larger landscape preview. Test recordings, drafts and gallery copies are cleaned up; existing app preferences are restored by the library test.
+- Four-second generated motion checks establish that analysis and rendering are wired together, not road stabilization quality. Long projects, sustained heat, external music-provider changes and physical outdoor vibration remain separate validation. One timed multi-line title is supported; multiple caption tracks, automatic speech captions, transitions and subject tracking are not implemented.
+- Recording policy, companion authentication, audio capture routing and original media remain unchanged. Thumbnail decoding pauses during recording/finalization. Drafts reference originals and are not media backups.
+
+
 ## 0.9.0 social studio and front inset, 2026-10-21
 
 - Fifty-nine unit tests, debug and signed release builds, and both lint variants passed. The original-signer replacement installed on the authorized Xiaomi 14T Pro, Android 16, preserving user recordings and settings.
@@ -150,4 +160,3 @@ The final original-signer 0.7.4 build additionally controls preview cadence at t
 Thirty-eight unit checks passed, including NV21 colour order, opaque black/white, all orthogonal rotations, rectangular portrait mapping and partial-input rejection. Debug and original-signer release builds and lint passed. Portrait live preview and the corrected information grouping were inspected on the phone. Android reported no thermal throttling during the checks. Temporary stay-awake was restored to 0, audio mode to normal, and captures were stopped. Existing user recordings were preserved; private media and diagnostics remain excluded from Git.
 
 One earlier short development recording ended without a retained stop reason; its cause was not established. Stop-reason logging and visible recorder faults now make a recurrence diagnosable. No guarantee is made for every headset, future ride, temperature, resolution or system load. Both MA390 and GEARELEC were physically verified in actual video recording; BLE, wired and USB paths remain capability-based but were not all physically tested. Outdoor footage with 0.7.4 remains required to verify sustained riding performance, exposure, vibration and thermal conditions. Phone-plus-headset live mixing remains unimplemented.
-

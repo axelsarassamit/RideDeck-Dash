@@ -5,3 +5,5 @@ Four H.264/AAC MP4s at 30 fps, 48 kHz mono were generated with FFmpeg's `color` 
 Video options: libx264, yuv420p, veryfast, CRF 28. Audio: AAC 48 kbit/s. MP4 faststart.
 
 Front fixtures also have a cyan strip over the top fifth and a magenta strip over the bottom fifth, verifying that the GPU mask preserves orientation. These are generated with the `drawbox` filter.
+
+shake.mp4 is a four-second generated testsrc2 pattern cropped with sinusoidal x/y offsets, plus a 440 Hz tone. It tests that the existing feature tracker can be analyzed and exported through the unified editor; it is not real road footage or a stabilization-quality benchmark.

@@ -12,11 +12,11 @@ final class TelemetryOverlay extends BitmapOverlay {
  void panel(float x,float y,float w,float h){p.setStyle(Paint.Style.FILL);p.setColor(Color.argb(settings.number("overlay_alpha",210),17,24,34));c.drawRoundRect(x,y,x+w,y+h,16*u,16*u,p);p.setColor(Color.argb(75,144,200,255));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(u);c.drawRoundRect(x,y,x+w,y+h,16*u,16*u,p);p.setStyle(Paint.Style.FILL);}
  @Override public Bitmap getBitmap(long timeUs){timeUs+=offsetUs;long tick=timeUs/(on("route")?100000:1000000);if(tick==bucket&&cached!=null)return cached;bucket=tick;
   Bitmap bitmap=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);c=new Canvas(bitmap);u=Math.min(width/1280f,height/720f)*(settings.number("overlay_size",28)/28f);boolean portrait=height>width;
-  float margin=24*u,left=margin,right=width-(social?width*.16f:margin),usable=right-left,top=social?height*.09f:margin,bottom=height-(social?height*.21f:margin);int white=Color.rgb(244,246,250),blue=Color.rgb(144,200,255),muted=Color.rgb(173,191,207);
+  float margin=24*u,left=margin,right=width-(social?width*.16f:margin),usable=right-left,top=social?height*.09f:margin,bottom=height-(social?height*.21f:margin);int white=Color.rgb(244,246,250),blue=settings.number("studio_color",Color.rgb(144,200,255)),muted=Color.rgb(173,191,207);
   // The RideDeck mark is mandatory even in a data-free preset.
-  float brandW=230*u;panel(left,top,brandW,66*u);logo.setBounds((int)(left+8*u),(int)(top+6*u),(int)(left+62*u),(int)(top+60*u));logo.draw(c);text("RideDeck",left+76*u,top+31*u,24*u,white,true);text("DASH",left+77*u,top+51*u,12*u,blue,true);
+  float brandW=230*u;place("brand",left,top,brandW,66*u);panel(left,top,brandW,66*u);logo.setBounds((int)(left+8*u),(int)(top+6*u),(int)(left+62*u),(int)(top+60*u));logo.draw(c);text("RideDeck",left+76*u,top+31*u,24*u,white,true);text("DASH",left+77*u,top+51*u,12*u,blue,true);c.restore();
   RideTelemetry.Sample s=data.at(timeUs);boolean mph=settings.number("overlay_mph",0)==1;
-  if(on("time")){String time=data.clipUtc<0?"TIME UNAVAILABLE":new SimpleDateFormat("HH:mm:ss",Locale.ROOT).format(new Date(data.clipUtc+timeUs/1000));float w=190*u;float x=portrait?left:right-w;float y=portrait?top+76*u:top;panel(x,y,w,66*u);text(time,x+16*u,y+29*u,24*u,white,true);text(data.clipUtc<0?"NO TIMESTAMP":new SimpleDateFormat("dd MMM yyyy",Locale.US).format(new Date(data.clipUtc+timeUs/1000)),x+16*u,y+50*u,13*u,muted,false);}
+  if(on("time")){String time=data.clipUtc<0?"TIME UNAVAILABLE":new SimpleDateFormat("HH:mm:ss",Locale.ROOT).format(new Date(data.clipUtc+timeUs/1000));float w=190*u;float x=portrait?left:right-w;float y=portrait?top+76*u:top;place("clock",x,y,w,66*u);panel(x,y,w,66*u);text(time,x+16*u,y+29*u,24*u,white,true);text(data.clipUtc<0?"NO TIMESTAMP":new SimpleDateFormat("dd MMM yyyy",Locale.US).format(new Date(data.clipUtc+timeUs/1000)),x+16*u,y+50*u,13*u,muted,false);c.restore();}
   List<String[]> stats=new ArrayList<>();
   if(on("distance"))stats.add(new String[]{s==null?"?":String.format(Locale.ROOT,"%.1f",s.distance/(mph?1609.344:1000)),mph?"RIDE / MI":"RIDE / KM"});
   if(on("altitude"))stats.add(new String[]{s==null||Double.isNaN(s.altitude)?"?":String.format(Locale.ROOT,"%.0f m",s.altitude),"ALTITUDE"});
@@ -26,10 +26,17 @@ final class TelemetryOverlay extends BitmapOverlay {
   if(on("camera"))stats.add(new String[]{data.camera.startsWith("Front")?"FRONT":"REAR","CAMERA"});
   int columns=portrait?2:3,rows=(stats.size()+columns-1)/columns;float statsH=rows*66*u,speedH=on("speed")?106*u:0,hudH=speedH+statsH;float mapW=portrait?Math.min(usable,340*u):290*u,mapH=mapW*.82f;
   float hudW=portrait?Math.min(usable,Math.max(340*u,stats.size()>0?360*u:340*u)):Math.min(usable-(on("route")?mapW+16*u:0),Math.max(340*u,stats.size()>2?640*u:400*u));float hudY=settings.number("overlay_top",0)==1?top+(portrait?156:82)*u:bottom-hudH;
-  if(hudH>0){panel(left,hudY,hudW,hudH);if(on("speed")){text(s==null||Double.isNaN(s.speed)?"?":String.format(Locale.ROOT,"%.0f",s.speed*(mph?2.236936:3.6)),left+18*u,hudY+72*u,66*u,white,true);text(mph?"mph":"km/h",left+145*u,hudY+47*u,21*u,blue,true);text(s!=null&&!Double.isNaN(s.speed)?"GPS SPEED":"GPS UNAVAILABLE",left+145*u,hudY+75*u,12*u,muted,true);}
-   float cellW=hudW/columns;for(int i=0;i<stats.size();i++){float x=left+(i%columns)*cellW+16*u,y=hudY+speedH+(i/columns)*66*u;text(stats.get(i)[0],x,y+27*u,22*u,white,true);text(stats.get(i)[1],x,y+48*u,10*u,muted,true);}}
-  if(on("route")){float mapX=portrait?left:right-mapW,mapY=portrait?(settings.number("overlay_top",0)==1?hudY+hudH+12*u:bottom-hudH-mapH-12*u):settings.number("overlay_top",0)==1?hudY:bottom-mapH;drawMap(timeUs,mapX,mapY,mapW,mapH,blue,white,muted);}
+  if(hudH>0){place("hud",left,hudY,hudW,hudH);panel(left,hudY,hudW,hudH);if(on("speed")){text(s==null||Double.isNaN(s.speed)?"?":String.format(Locale.ROOT,"%.0f",s.speed*(mph?2.236936:3.6)),left+18*u,hudY+72*u,66*u,white,true);text(mph?"mph":"km/h",left+145*u,hudY+47*u,21*u,blue,true);text(s!=null&&!Double.isNaN(s.speed)?"GPS SPEED":"GPS UNAVAILABLE",left+145*u,hudY+75*u,12*u,muted,true);}
+   float cellW=hudW/columns;for(int i=0;i<stats.size();i++){float x=left+(i%columns)*cellW+16*u,y=hudY+speedH+(i/columns)*66*u;text(stats.get(i)[0],x,y+27*u,22*u,white,true);text(stats.get(i)[1],x,y+48*u,10*u,muted,true);}c.restore();}
+  if(on("route")){float mapX=portrait?left:right-mapW,mapY=portrait?(settings.number("overlay_top",0)==1?hudY+hudH+12*u:bottom-hudH-mapH-12*u):settings.number("overlay_top",0)==1?hudY:bottom-mapH;place("map",mapX,mapY,mapW,mapH);drawMap(timeUs,mapX,mapY,mapW,mapH,blue,white,muted);c.restore();}
   cached=bitmap;return bitmap;
+ }
+ void place(String key,float x,float y,float w,float h){
+  c.save();float scale=settings.number("studio_"+key+"_scale",100)/100f;
+  int px=settings.number("studio_"+key+"_x",-1),py=settings.number("studio_"+key+"_y",-1);
+  float nx=px<0?x:Math.min(width-w*scale,Math.max(0,width*px/100f));
+  float ny=py<0?y:Math.min(height-h*scale,Math.max(0,height*py/100f));
+  c.translate(nx-x,ny-y);c.scale(scale,scale,x,y);
  }
  void drawMap(long timeUs,float x,float y,float w,float h,int blue,int white,int muted){panel(x,y,w,h);text("RIDE MAP",x+14*u,y+26*u,13*u,white,true);text("N",x+w-25*u,y+26*u,12*u,blue,true);float mx=x+10*u,my=y+38*u,mw=w-20*u,mh=h-68*u;RideTelemetry.Sample now=data.moving(timeUs);c.save();c.clipRect(mx,my,mx+mw,my+mh);p.setColor(Color.rgb(23,35,47));c.drawRect(mx,my,mx+mw,my+mh,p);
   p.setColor(Color.argb(60,92,121,145));p.setStrokeWidth(u);for(int i=1;i<5;i++){c.drawLine(mx+mw*i/5,my,mx+mw*i/5,my+mh,p);c.drawLine(mx,my+mh*i/5,mx+mw,my+mh*i/5,p);}

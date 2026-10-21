@@ -13,6 +13,7 @@ import java.util.function.BooleanSupplier;
 /** Shared GPU composition for playable multi-clip preview and export. */
 @androidx.annotation.OptIn(markerClass=androidx.media3.common.util.UnstableApi.class)
 final class SocialComposition {
+    private static final Map<String,VideoStabilizer> motion=new LinkedHashMap<String,VideoStabilizer>(4,.75f,true){protected boolean removeEldestEntry(Map.Entry<String,VideoStabilizer> e){return size()>4;}};
     static final class Built {
         final Composition composition;final long durationMs;final int matched;final long missingFrontMs;
         Built(Composition c,long d,int m,long missing){composition=c;durationMs=d;matched=m;missingFrontMs=missing;}
@@ -32,9 +33,15 @@ final class SocialComposition {
             File file=SocialProject.validate(c,item.file);
             OverlayRoads roads=new OverlayRoads();
             // Preview/export use identical local overlays; road-network downloads remain in single-clip export.
-            List<Effect> effects=SocialEffects.create(c,file,recipe,item.fromMs*1000,null,roads,false);
+            VideoStabilizer correction=null;int strength=recipe.number("studio_stabilize",0);
+            if(strength>0){String key=file.getPath()+":"+file.lastModified()+":"+item.fromMs+":"+item.toMs+":"+strength;
+                synchronized(motion){correction=motion.get(key);}
+                if(correction==null){correction=VideoStabilizer.analyze(file,item.fromMs*1000,item.toMs*1000,strength,cancelled,n->{});if(cancelled.getAsBoolean())throw new IOException("Analysis cancelled");synchronized(motion){motion.put(key,correction);}}
+            }
+            List<Effect> effects=SocialEffects.create(c,file,recipe,item.fromMs*1000,correction,roads,false);
             List<androidx.media3.common.audio.AudioProcessor> audio=new ArrayList<>();
             if(recipe.number("audio_cutoff",0)>0)audio.add(new WindAudioProcessor(recipe.number("audio_cutoff",0)));
+            audio.add(new StudioAudio(recipe.number("studio_volume",100),item.lengthMs(),recipe.number("studio_fade",0)));
             rear.addItem(edit(file,item.durationMs,item.fromMs*1000,item.toMs*1000,mute,new Effects(audio,effects)));
             long lengthUs=item.lengthMs()*1000;
             if(p.pip) {
@@ -63,7 +70,18 @@ final class SocialComposition {
             outputUs+=lengthUs;
         }
         if(p.pip&&matched==0)throw new IOException("No simultaneous front recording found. Choose another rear clip or turn PiP off");
-        Composition.Builder builder=p.pip?new Composition.Builder(front.build(),rear.build()):new Composition.Builder(rear.build());
+        List<EditedMediaItemSequence> sequences=new ArrayList<>();if(p.pip)sequences.add(front.build());sequences.add(rear.build());
+        String music=recipe.text("studio_music","");
+        if(!music.isEmpty()){
+            Uri uri=Uri.parse(music);if(!"content".equals(uri.getScheme()))throw new IOException("Choose music again");
+            long musicMs;try(android.media.MediaMetadataRetriever r=new android.media.MediaMetadataRetriever()){r.setDataSource(c,uri);musicMs=Long.parseLong(r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION));}
+            long end=Math.min(p.durationMs(),musicMs);if(end<500)throw new IOException("Music file is too short");
+            MediaItem media=new MediaItem.Builder().setUri(uri).setClippingConfiguration(new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(end).build()).build();
+            EditedMediaItem item=new EditedMediaItem.Builder(media).setDurationUs(musicMs*1000).setRemoveVideo(true)
+                .setEffects(new Effects(Collections.singletonList(new StudioAudio(recipe.number("studio_music_volume",30),end,recipe.number("studio_fade",0))),Collections.emptyList())).build();
+            sequences.add(new EditedMediaItemSequence.Builder(Collections.singleton(C.TRACK_TYPE_AUDIO)).addItem(item).build());
+        }
+        Composition.Builder builder=new Composition.Builder(sequences);
         if(p.pip)builder.setVideoCompositorSettings(new VideoCompositorSettings(){
             private Size frontSize=new Size(dimensions[0],dimensions[1]);
             public Size getOutputSize(List<Size> inputs){frontSize=inputs.get(0);return new Size(dimensions[0],dimensions[1]);}
@@ -71,6 +89,7 @@ final class SocialComposition {
                 if(id!=0)return new StaticOverlaySettings.Builder().build();
                 float x=(p.corner%2==0)?-.94f:.94f,y=p.corner<2?.94f:-.94f;
                 float scale=Math.min(dimensions[0]*p.size/100f/frontSize.getWidth(),dimensions[1]*p.size/100f/frontSize.getHeight());
+                if(p.pipX>=0&&p.pipY>=0){float w=frontSize.getWidth()*scale/dimensions[0],h=frontSize.getHeight()*scale/dimensions[1];return new StaticOverlaySettings.Builder().setScale(scale,scale).setBackgroundFrameAnchor(-1+2*Math.min(p.pipX/100f,1-w),1-2*Math.min(p.pipY/100f,1-h)).setOverlayFrameAnchor(-1,1).setAlphaScale(SocialTimeline.visible(visible,timeUs)?1:0).build();}
                 return new StaticOverlaySettings.Builder().setScale(scale,scale)
                     .setBackgroundFrameAnchor(x,y).setOverlayFrameAnchor(x<0?-1:1,y>0?1:-1)
                     .setAlphaScale(SocialTimeline.visible(visible,timeUs)?1:0).build();
@@ -80,6 +99,7 @@ final class SocialComposition {
         Map<String,Object> brand=new HashMap<>(recipe.snapshot);for(String key:SocialProfile.overlayKeys())brand.put("overlay_"+key,0);
         List<Effect> finishing=new ArrayList<>();
         if(exporting)finishing.add(FrameDropEffect.createDefaultFrameDropEffect(30));
+        finishing.add(new OverlayEffect(Collections.singletonList(new StudioText(recipe))));
         finishing.add(new OverlayEffect(Collections.singletonList(new TelemetryOverlay(c,new RideTelemetry(),new DashSettings(c,brand),0,true,new OverlayRoads()))));
         builder.setEffects(new Effects(Collections.emptyList(),finishing));
         return new Built(builder.build(),p.durationMs(),matched,(outputUs-coveredUs)/1000);

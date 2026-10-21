@@ -16,6 +16,13 @@ final class SocialEffects {
         int[] size = SocialProfile.dimensions(settings.number("social_ratio", 0), settings.number("social_quality", 1080));
         effects.add(Presentation.createForWidthAndHeight(size[0], size[1], settings.number("social_fit", 0) == 1
                 ? Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP : Presentation.LAYOUT_SCALE_TO_FIT));
+        if(settings.number("studio_zoom",100)!=100||settings.number("studio_pan_x",0)!=0||settings.number("studio_pan_y",0)!=0){
+            effects.add((MatrixTransformation)time->{android.graphics.Matrix m=new android.graphics.Matrix();float z=settings.number("studio_zoom",100)/100f;
+                m.setScale(z,z);m.postTranslate(settings.number("studio_pan_x",0)/100f*(z-1),-settings.number("studio_pan_y",0)/100f*(z-1));return m;});
+        }
+        effects.add(new Brightness(settings.number("studio_brightness",0)/100f));
+        effects.add(new Contrast(settings.number("studio_contrast",0)/100f));
+        effects.add(new HslAdjustment.Builder().adjustSaturation(settings.number("studio_saturation",0)).build());
         if (exporting) effects.add(FrameDropEffect.createDefaultFrameDropEffect(30));
         Map<String,Object> values = new HashMap<>(settings.snapshot);
         int style = settings.number("social_overlay", 0);

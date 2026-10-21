@@ -2,9 +2,11 @@
 
 A separate Android dashcam for RideDeck and RideDeck for Yamaha. Package: com.axelsarassamit.ridedeck.dash.
 
-## Editor and recording safeguards: 0.8.1
+## Social timeline editor: 0.10.0
 
-Social export supports selected-clip batches, ordered merges and a synchronized front-camera picture-in-picture studio. Reorder and trim up to 30 clips, preview in portrait/landscape, choose PiP size/corner/timing, and export separate copies or one merged video. The original single-clip stabilization editor remains available with in/out trim, playhead selection, platform presets, framing, audio/mute and telemetry controls. Preview and export share framing/data effects, and export freezes the chosen settings. Playback resources are released when leaving the editor or when recording starts. Originals stay untouched. A date/time-filtered local backup copies complete original clips and ride CSVs with a manifest, with cancellation and continuous power checks.
+One editor replaces the old single-clip and overlay-export screens. It provides a large preview, thumbnail timeline, draggable trims, split/duplicate/reorder/remove, crop and social formats, movable front-camera PiP, configurable ride overlays, timed title text, music/volume/fades, colour adjustments and integrated experimental stabilization. Undo/redo and app-private saved drafts preserve non-destructive edits. Export selected recordings separately or merge up to 30 sections and 30 minutes. Preview and export share the recipe. Recording thumbnails, persistent sorting and camera/protection filters make the library easier to browse.
+
+Originals stay untouched. Drafts reference source media and are not backups. Heavy editing/export retains charger-or-50% reserve and capture priority. The existing recording policy is unchanged. A date/time-filtered local backup still copies complete originals and ride CSVs with a manifest.
 
 Rear distant focus no longer silently falls back to continuous autofocus when manual locking is unavailable. Capture requests fixed 1x zoom and disables autoframing where supported. Capture logs now sample applied focus, focal length, zoom, exposure/frame timing and thermal status alongside cadence diagnostics. Rear-priority dual capture and native preview throttling remain in place.
 

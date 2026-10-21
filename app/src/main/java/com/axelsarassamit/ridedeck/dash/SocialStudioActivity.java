@@ -3,6 +3,8 @@ package com.axelsarassamit.ridedeck.dash;
 import android.app.*;
 import android.content.*;
 import android.content.res.Configuration;
+import android.graphics.*;
+import android.net.Uri;
 import android.os.*;
 import android.text.InputType;
 import android.view.*;
@@ -13,101 +15,156 @@ import androidx.media3.transformer.CompositionPlayer;
 import androidx.media3.ui.PlayerView;
 import java.util.*;
 
-/** Ordered, non-destructive batch/merge editor with the same composition as export. */
+/** One non-destructive timeline editor for every social-video entry point. */
 @androidx.annotation.OptIn(markerClass={androidx.media3.common.util.UnstableApi.class,androidx.media3.common.util.ExperimentalApi.class})
 public final class SocialStudioActivity extends Activity {
     SocialProject project;DashSettings recipe;CompositionPlayer player;PlayerView preview;
-    LinearLayout controls;TextView status;Button export;volatile int generation;
-    boolean firstFrameRendered;
+    LinearLayout controls;TextView status,clock;Button export,play,undoButton,redoButton;SeekBar scrub;
+    StudioTimeline timeline;PositionLayer positions;volatile int generation;boolean firstFrameRendered;
+    int selected;long seekMs;String tool="Clips",target="",draftId;boolean guides=true,resumed;
     final Handler handler=new Handler(Looper.getMainLooper());
-    @Override public void onCreate(Bundle state) {
+    final java.util.List<Button> toolButtons=new ArrayList<>();
+    final ArrayDeque<Bundle> undo=new ArrayDeque<>(),redo=new ArrayDeque<>();
+    @Override public void onCreate(Bundle state){
         RideAppearance.prepare(this);super.onCreate(state);getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        try { project=SocialProject.load(this,state==null?getIntent().getBundleExtra("project"):state.getBundle("project"));layout(); }
-        catch(Exception e){project=null;LinearLayout page=DashUi.page(this);setContentView(page);DashUi.text(this,page,"Select clips again: "+e.getMessage(),18);DashUi.button(this,page,"Back",v->finish());}
+        try{
+            Bundle spec=getIntent().getBundleExtra("project"),settings=getIntent().getBundleExtra("recipe");
+            draftId=state==null?getIntent().getStringExtra("draft"):state.getString("draft");
+            if(state!=null){spec=state.getBundle("project");settings=state.getBundle("recipe");selected=state.getInt("selected");seekMs=state.getLong("seek");tool=state.getString("tool","Clips");}
+            else if(draftId!=null){Bundle draft=StudioDrafts.read(this,draftId);spec=draft.getBundle("project");settings=draft.getBundle("recipe");}
+            if(draftId==null)draftId=UUID.randomUUID().toString();
+            project=SocialProject.load(this,spec);recipe=DashSettings.fromBundle(this,settings);if(!recipe.snapshot.containsKey("social_fit"))setting("social_fit",1);
+            // Legacy export stabilization is opt-in in this new project, never silently applied.
+            layout();
+        }catch(Exception e){project=null;LinearLayout page=DashUi.page(this);setContentView(page);DashUi.text(this,page,"Cannot open edit: "+e.getMessage(),18);DashUi.button(this,page,"Back",v->finish());}
     }
-    void layout() {
+    int dp(int n){return DashUi.dp(this,n);}
+    LinearLayout row(){LinearLayout r=new LinearLayout(this);r.setGravity(Gravity.CENTER_VERTICAL);return r;}
+    Button button(LinearLayout parent,String text,Runnable action){Button b=DashUi.button(this,parent,text,v->action.run());b.setTextSize(13);b.setMinHeight(dp(44));b.setPadding(dp(10),dp(3),dp(10),dp(3));if(parent.getOrientation()==LinearLayout.HORIZONTAL)b.setLayoutParams(new LinearLayout.LayoutParams(-2,dp(44)));return b;}
+    void compact(Button b,int width){b.setLayoutParams(new LinearLayout.LayoutParams(width,dp(44)));}
+    void layout(){
         boolean wide=getResources().getConfiguration().orientation==Configuration.ORIENTATION_LANDSCAPE;
-        LinearLayout root=new LinearLayout(this);root.setBackgroundColor(RideStyle.BACKGROUND);root.setOrientation(wide?LinearLayout.HORIZONTAL:LinearLayout.VERTICAL);
-        root.setOnApplyWindowInsetsListener((v,insets)->{if(Build.VERSION.SDK_INT>=30){android.graphics.Insets b=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());v.setPadding(b.left,b.top,b.right,b.bottom);}else v.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});
-        preview=new PlayerView(this);preview.setControllerShowTimeoutMs(3000);preview.setControllerAutoShow(false);
-        root.addView(preview,new LinearLayout.LayoutParams(wide?0:-1,wide?-1:0,wide?3:2));
-        ScrollView scroll=new ScrollView(this);controls=DashUi.page(this);controls.setOnApplyWindowInsetsListener(null);scroll.addView(controls);
-        root.addView(scroll,new LinearLayout.LayoutParams(wide?0:-1,wide?-1:0,wide?2:3));setContentView(root);
+        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(RideStyle.BACKGROUND);
+        root.setOnApplyWindowInsetsListener((v,insets)->{if(Build.VERSION.SDK_INT>=30){Insets b=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());v.setPadding(b.left,b.top,b.right,b.bottom);}else v.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});
+        LinearLayout header=row();root.addView(header,new LinearLayout.LayoutParams(-1,dp(wide?44:48)));
+        compact(button(header,"‹",()->{save(false);finish();}),dp(44));
+        TextView title=new TextView(this);title.setText("RideDeck  /  EDITOR");title.setTextColor(RideStyle.TEXT);title.setTextSize(16);title.setTypeface(null,Typeface.BOLD);header.addView(title,new LinearLayout.LayoutParams(0,-2,1));
+        compact(button(header,"Drafts",this::drafts),dp(70));export=button(header,"Export",this::exportOptions);compact(export,dp(78));export.setEnabled(false);
+        LinearLayout workspace=new LinearLayout(this);workspace.setOrientation(wide?LinearLayout.HORIZONTAL:LinearLayout.VERTICAL);root.addView(workspace,new LinearLayout.LayoutParams(-1,0,1));
+        LinearLayout main=new LinearLayout(this);main.setOrientation(LinearLayout.VERTICAL);workspace.addView(main,new LinearLayout.LayoutParams(wide?0:-1,wide?-1:0,1));
+        FrameLayout stage=new FrameLayout(this);stage.setBackgroundColor(Color.BLACK);main.addView(stage,new LinearLayout.LayoutParams(-1,0,1));
+        preview=new PlayerView(this);preview.setUseController(false);stage.addView(preview,new FrameLayout.LayoutParams(-1,-1));positions=new PositionLayer();stage.addView(positions,new FrameLayout.LayoutParams(-1,-1));
+        LinearLayout transport=row();if(!wide)main.addView(transport,new LinearLayout.LayoutParams(-1,dp(44)));
+        play=button(transport,"▶",()->{if(player!=null){if(player.isPlaying())player.pause();else{if(player.getPlaybackState()==Player.STATE_ENDED)player.seekTo(0);player.play();}}});compact(play,dp(48));
+        clock=new TextView(this);clock.setTextColor(RideStyle.TEXT);clock.setTextSize(12);clock.setText("00:00 / 00:00");transport.addView(clock,new LinearLayout.LayoutParams(dp(106),-2));
+        scrub=new SeekBar(this);scrub.setContentDescription("Preview playhead");scrub.setMax((int)project.durationMs());transport.addView(scrub,new LinearLayout.LayoutParams(0,-2,1));
+        scrub.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar b,int n,boolean user){if(user){seekMs=n;if(player!=null)player.seekTo(n);}}public void onStartTrackingTouch(SeekBar b){}public void onStopTrackingTouch(SeekBar b){}});
+        undoButton=button(transport,"↶",()->history(false));compact(undoButton,dp(44));redoButton=button(transport,"↷",()->history(true));compact(redoButton,dp(44));
+        HorizontalScrollView strip=new HorizontalScrollView(this);strip.setHorizontalScrollBarEnabled(false);timeline=new StudioTimeline(this);timeline.compact=wide;strip.addView(timeline);if(!wide)main.addView(strip,new LinearLayout.LayoutParams(-1,dp(104)));
+        timeline.listener=new StudioTimeline.Listener(){public void select(int index,long time){selected=index;seekMs=time;timeline.selected=index;timeline.invalidate();if(player!=null)player.seekTo(time);showTool();}public void trim(int index,long a,long b){remember();SocialProject.Clip clip=project.clips.get(index);clip.fromMs=a;clip.toMs=b;selected=index;seekMs=startOf(index);refresh();}};
+        LinearLayout right=new LinearLayout(this);right.setOrientation(LinearLayout.VERTICAL);workspace.addView(right,new LinearLayout.LayoutParams(wide?dp(340):-1,wide?-1:dp(180)));if(wide){right.addView(transport,new LinearLayout.LayoutParams(-1,dp(44)));right.addView(strip,new LinearLayout.LayoutParams(-1,dp(76)));}
+        status=new TextView(this);status.setTextColor(RideStyle.MUTED);status.setTextSize(11);status.setPadding(dp(12),dp(4),dp(12),dp(4));status.setMaxLines(2);right.addView(status);
+        ScrollView scroll=new ScrollView(this);controls=new LinearLayout(this);controls.setOrientation(LinearLayout.VERTICAL);controls.setPadding(dp(8),0,dp(8),dp(8));scroll.addView(controls);right.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        HorizontalScrollView tools=new HorizontalScrollView(this);tools.setHorizontalScrollBarEnabled(false);LinearLayout rail=row();tools.addView(rail);root.addView(tools,new LinearLayout.LayoutParams(-1,dp(wide?60:70)));
+        for(String name:new String[]{"Clips","Crop","Front camera","Overlays","Text","Sound","Adjust","Stabilize"}){Button b=button(rail,name,()->{tool=name;target="";positions.invalidate();showTool();});b.setCompoundDrawables(null,new RideGlyph(this,name),null,null);b.setCompoundDrawablePadding(dp(2));b.setLayoutParams(new LinearLayout.LayoutParams(dp(name.equals("Front camera")?112:90),dp(wide?56:64)));toolButtons.add(b);}
+        setContentView(root);timeline.bind(project,selected);showTool();
     }
-    @Override protected void onResume(){super.onResume();if(project!=null){recipe=new DashSettings(this,true);refresh();handler.post(recordingGuard);}}
-    void refresh() {
-        generation++;release();firstFrameRendered=false;controls.removeAllViews();
-        DashUi.text(this,controls,"Social video studio",24);
-        DashUi.text(this,controls,project.clips.size()+" clips · "+seconds(project.durationMs())+"s selected · originals kept",15);
-        status=DashUi.text(this,controls,"Preparing playable preview",15);
-        DashUi.button(this,controls,"Output: "+(project.merge?"Merge into one video":"Separate video for each clip"),v->new AlertDialog.Builder(this).setTitle("Export selected clips")
-            .setItems(new String[]{"Merge into one video","Separate social videos"},(d,i)->{project.merge=i==0;refresh();}).show());
-        DashUi.button(this,controls,"Platform, framing, sound & overlays",v->startActivity(new Intent(this,SocialSettingsActivity.class).putExtra("fromEditor",true)));
-        DashUi.button(this,controls,"Apply preset trim to every clip",v->new AlertDialog.Builder(this).setTitle("Replace all trim ranges?").setMessage("Uses the preset start and length separately for each original. Order is preserved.")
-            .setNegativeButton("Cancel",null).setPositiveButton("Apply",(d,w)->{for(SocialProject.Clip item:project.clips){long[] r;try{r=SocialProfile.range(item.durationMs,recipe.number("social_start",0),recipe.number("social_length",15));}catch(Exception e){r=SocialProfile.range(item.durationMs,0,recipe.number("social_length",15));}item.fromMs=r[0];item.toMs=r[1];}refresh();}).show());
-        CheckBox pip=new CheckBox(this);pip.setText("Front camera as picture-in-picture");pip.setTextColor(RideStyle.TEXT);pip.setChecked(project.pip);controls.addView(pip);
-        pip.setOnCheckedChangeListener((v,on)->{project.pip=on;refresh();});
-        if(project.pip) {
-            DashUi.text(this,controls,"Rear camera fills the main picture. Front camera is a small rounded inset, like the live Dash screen.",14);
-            DashUi.button(this,controls,"Rear framing: "+(project.fillRear?"Fill canvas":"Keep whole picture"),v->{project.fillRear=!project.fillRear;refresh();});
-            String[] corners={"Top left","Top right","Bottom left","Bottom right"};
-            DashUi.button(this,controls,"PiP corner: "+corners[project.corner],v->new AlertDialog.Builder(this).setTitle("Front camera position").setItems(corners,(d,i)->{project.corner=i;refresh();}).show());
-            DashUi.button(this,controls,"PiP size: "+project.size+"%",v->new AlertDialog.Builder(this).setTitle("Front camera size").setItems(new String[]{"Small · 20%","Medium · 28%","Large · 36%"},(d,i)->{project.size=new int[]{20,28,36}[i];refresh();}).show());
-            DashUi.button(this,controls,"Front timing offset: "+project.shiftMs+" ms",v->syncOffset());
-            DashUi.text(this,controls,"Matches simultaneous front footage from the same ride using capture times, including different clip rollovers. Small startup offsets may remain; adjust timing if needed. Positive offset delays the front view. Missing front sections hide PiP. Main-clip sound is kept; front sound is muted.",14);
+    @Override protected void onResume(){super.onResume();resumed=true;if(project!=null){refresh();handler.removeCallbacks(tick);handler.post(tick);}}
+    void heading(String value){TextView text=DashUi.text(this,controls,value,14);text.setTypeface(null,Typeface.BOLD);text.setPadding(dp(6),dp(6),dp(6),dp(4));}
+    void hint(String value){TextView text=DashUi.text(this,controls,value,12);text.setTextColor(RideStyle.MUTED);text.setPadding(dp(6),dp(3),dp(6),dp(5));}
+    void option(String label,Runnable action){button(controls,label,action);}
+    void choice(String title,String[] choices,java.util.function.IntConsumer apply){new AlertDialog.Builder(this).setTitle(title).setItems(choices,(d,i)->{remember();apply.accept(i);refresh();}).setNegativeButton("Cancel",null).show();}
+    void setting(String key,int value){Map<String,Object> map=new HashMap<>(recipe.snapshot);map.put(key,value);recipe=new DashSettings(this,map);}
+    void setting(String key,String value){Map<String,Object> map=new HashMap<>(recipe.snapshot);map.put(key,value);recipe=new DashSettings(this,map);}
+    void slider(String label,String key,int min,int max,int fallback){heading(label+"  "+recipe.number(key,fallback));SeekBar bar=new SeekBar(this);bar.setContentDescription(label);bar.setMax(max-min);bar.setProgress(recipe.number(key,fallback)-min);controls.addView(bar,new LinearLayout.LayoutParams(-1,dp(40)));bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar b,int v,boolean user){}public void onStartTrackingTouch(SeekBar b){remember();}public void onStopTrackingTouch(SeekBar b){setting(key,min+b.getProgress());refresh();}});}
+    void showTool(){
+        controls.removeAllViews();for(Button b:toolButtons){boolean active=tool.contentEquals(b.getText());android.graphics.drawable.GradientDrawable bg=RideStyle.surface(this,RideStyle.RAISED,14,true);if(active)bg.setStroke(dp(2),AppearancePalette.accent(RideAppearance.accentIndex(this),RideAppearance.isDark(this)));b.setBackground(bg);b.setSelected(active);}undoButton.setEnabled(!undo.isEmpty());redoButton.setEnabled(!redo.isEmpty());selected=Math.min(selected,project.clips.size()-1);
+        SocialProject.Clip clip=project.clips.get(selected);heading(tool.toUpperCase(Locale.ROOT));
+        switch(tool){
+            case "Clips":
+                hint("Clip "+(selected+1)+" / "+project.clips.size()+" · "+clip.file.getName()+" · drag amber handles to trim");
+                LinearLayout edits=row();controls.addView(edits);button(edits,"Split",this::split);button(edits,"Trim",()->trim(selected));button(edits,"Duplicate",()->{if(project.clips.size()>=30){message("Maximum 30 clips");return;}remember();project.clips.add(selected+1,new SocialProject.Clip(clip.file,clip.durationMs,clip.fromMs,clip.toMs));refresh();});
+                LinearLayout order=row();controls.addView(order);button(order,"← Move",()->move(-1)).setEnabled(selected>0);button(order,"Move →",()->move(1)).setEnabled(selected<project.clips.size()-1);button(order,"Remove",()->{remember();project.clips.remove(selected);selected=Math.max(0,selected-1);refresh();}).setEnabled(project.clips.size()>1);
+                option("Save draft",()->save(true));break;
+            case "Crop":
+                option("Canvas / social preset",()->choice("Output format",new String[]{"TikTok / Reels / Stories · 9:16","Instagram / Facebook feed · 4:5","Square · 1:1","Landscape · 16:9"},i->setting("social_ratio",i)));
+                option("Framing: "+(recipe.number("social_fit",1)==1?"Fill picture":"Keep whole picture"),()->{remember();int n=recipe.number("social_fit",1)==1?0:1;setting("social_fit",n);project.fillRear=n==1;refresh();});
+                option("Drag framing on preview",()->selectTarget("crop"));slider("Zoom %","studio_zoom",100,200,100);slider("Horizontal framing","studio_pan_x",-100,100,0);slider("Vertical framing","studio_pan_y",-100,100,0);hint("Zoom first, then adjust framing. Guides stay out of the export.");option(guides?"Hide social safe-area guides":"Show social safe-area guides",()->{guides=!guides;positions.invalidate();});break;
+            case "Front camera":
+                option(project.pip?"Front PiP: on":"Front PiP: off",()->{remember();project.pip=!project.pip;refresh();});
+                if(project.pip){option("Move PiP on preview",()->selectTarget("pip"));option("Size: "+project.size+"%",()->choice("Front size",new String[]{"Small 20%","Medium 28%","Large 36%"},i->project.size=new int[]{20,28,36}[i]));
+                    option("Snap to corner",()->choice("Front position",new String[]{"Top left","Top right","Bottom left","Bottom right"},i->{project.corner=i;project.pipX=project.pipY=-1;}));option("Timing offset: "+project.shiftMs+" ms",this::syncOffset);hint("Front footage comes from the same ride. Missing sections hide PiP. Main video supplies sound.");}break;
+            case "Overlays":
+                if(!target.isEmpty()){overlayPanel(target,target.equals("hud")?"Speed & ride data":target.equals("map")?"Moving route map":target.equals("clock")?"Date & time":"RideDeck logo");break;}
+                hint("Choose a group, then drag it on the preview. RideDeck branding stays visible.");
+                option("Style / data",()->choice("Overlay style",new String[]{"Logo only","Speed","Ride + map","All available data","Custom selection"},i->setting("social_overlay",i)));
+                for(String key:new String[]{"hud","map","clock","brand"}){String label=key.equals("hud")?"Speed & ride data":key.equals("map")?"Moving route map":key.equals("clock")?"Date & time":"RideDeck logo";option(label,()->{target=key;positions.invalidate();overlayPanel(key,label);});}
+                option("Choose custom data",this::customData);break;
+            case "Text":
+                option(recipe.text("studio_text","").isEmpty()?"Add title / caption":"Edit title / caption",this::editText);option("Move text on preview",()->selectTarget("text"));
+                slider("Text size","studio_text_scale",3,12,6);option("Text timing",this::textTiming);option("Font",()->choice("Text font",new String[]{"RideDeck bold","Condensed bold"},i->setting("studio_text_font",i)));
+                option("Text background: "+(recipe.number("studio_text_bg",1)==1?"on":"off"),()->{remember();setting("studio_text_bg",1-recipe.number("studio_text_bg",1));refresh();});option("Accent / text colour",this::colour);break;
+            case "Sound":
+                slider("Recorded sound %","studio_volume",0,150,100);option(recipe.number("social_mute",0)==1?"Recorded sound: muted":"Recorded sound: on",()->{remember();setting("social_mute",1-recipe.number("social_mute",0));refresh();});
+                option(recipe.text("studio_music","").isEmpty()?"Add music from phone":"Replace music",()->startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("audio/*").addCategory(Intent.CATEGORY_OPENABLE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION),41));
+                if(!recipe.text("studio_music","").isEmpty()){hint("Music: "+recipe.text("studio_music_name","Selected audio"));slider("Music volume %","studio_music_volume",0,100,30);option("Remove music",()->{remember();setting("studio_music","");refresh();});}
+                option("Audio fades: "+(recipe.number("studio_fade",0)>0?"on":"off"),()->{remember();setting("studio_fade",recipe.number("studio_fade",0)>0?0:500);refresh();});option("Wind rumble filter",()->choice("Low-frequency reduction",new String[]{"Off","Gentle · 80 Hz","Road · 120 Hz","Strong · 180 Hz"},i->setting("audio_cutoff",new int[]{0,80,120,180}[i])));hint("Fades apply at each clip edge. Music starts with the project and ends when the file ends. Add platform music in the social app if preferred.");break;
+            case "Adjust":
+                slider("Brightness","studio_brightness",-50,50,0);slider("Contrast","studio_contrast",-50,50,0);slider("Saturation","studio_saturation",-100,100,0);option("Colour presets",()->choice("Picture look",new String[]{"Natural","Clear road","Soft","Black & white"},i->{setting("studio_brightness",new int[]{0,5,5,0}[i]);setting("studio_contrast",new int[]{0,12,-10,10}[i]);setting("studio_saturation",new int[]{0,8,-15,-100}[i]);}));break;
+            case "Stabilize":
+                int strength=recipe.number("studio_stabilize",0);option("Stabilization: "+new String[]{"Off","Gentle","Strong","Maximum"}[Math.max(0,Math.min(3,strength))],()->choice("Stabilize selected video",new String[]{"Off · full view","Gentle · 12% zoom","Strong · 22% zoom","Maximum · 35% zoom"},i->setting("studio_stabilize",i)));
+                hint("Analyzes each trimmed main clip before preview. Preview and export use the same correction. Front PiP is unchanged. Analysis may take time; stronger modes crop more. Severe blur, missing frames and rolling-shutter distortion cannot reliably be restored.");break;
         }
-        DashUi.text(this,controls,"CLIP ORDER & TRIM",16);
-        for(int i=0;i<project.clips.size();i++) {
-            final int index=i;SocialProject.Clip item=project.clips.get(i);
-            DashUi.text(this,controls,(i+1)+" · "+item.file.getParentFile().getName()+" / "+item.file.getName(),15);
-            DashUi.button(this,controls,"Trim: "+seconds(item.fromMs)+"s to "+seconds(item.toMs)+"s",v->trim(index));
-            LinearLayout row=new LinearLayout(this);controls.addView(row);
-            Button up=DashUi.button(this,row,"Move up",v->{Collections.swap(project.clips,index,index-1);refresh();});up.setEnabled(i>0);
-            Button down=DashUi.button(this,row,"Move down",v->{Collections.swap(project.clips,index,index+1);refresh();});down.setEnabled(i+1<project.clips.size());
-            Button remove=DashUi.button(this,row,"Remove",v->{project.clips.remove(index);refresh();});remove.setEnabled(project.clips.size()>1);
-            for(Button b:new Button[]{up,down,remove})b.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
-        }
-        export=DashUi.button(this,controls,project.merge?"Create merged social video":"Create "+project.clips.size()+" separate social videos",v->{
-            if(!power()||RecordingService.running||RecordingService.finalizing){status.setText("Stop recording and connect charger or charge to 50%");return;}
-            startActivity(new Intent(this,SocialExportActivity.class).putExtra("project",project.bundle()).putExtra("recipe",recipe.bundle()));
-        });export.setEnabled(false);
-        DashUi.text(this,controls,"Preview plays the selected clips in order. Straight cuts preserve your chosen order. The RideDeck logo is always included. This multi-clip mode does not add experimental export stabilization. Up to 30 clips and 30 minutes of selected video. Keep Dash open while exporting.",14);
-        DashUi.button(this,controls,"Back to recordings",v->finish());prepare();
     }
-    void trim(int index) {
-        SocialProject.Clip item=project.clips.get(index);LinearLayout fields=new LinearLayout(this);fields.setOrientation(LinearLayout.VERTICAL);
-        EditText from=new EditText(this),to=new EditText(this);from.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);to.setInputType(from.getInputType());
-        from.setHint("In point, seconds");to.setHint("Out point, seconds");from.setText(seconds(item.fromMs));to.setText(seconds(item.toMs));fields.addView(from);fields.addView(to);
-        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Trim clip "+(index+1)+" · "+seconds(item.durationMs)+"s").setView(fields).setNegativeButton("Cancel",null).setPositiveButton("Apply",null).create();
-        dialog.setOnShowListener(v->dialog.getButton(-1).setOnClickListener(w->{try{long a=parseMs(from.getText().toString()),b=parseMs(to.getText().toString());if(a<0||b>item.durationMs||b-a<500)throw new IllegalArgumentException();item.fromMs=a;item.toMs=b;dialog.dismiss();refresh();}catch(Exception e){to.setError("Use a valid range of at least 0.5 seconds within this clip");}}));dialog.show();
-    }
-    void syncOffset() {
-        EditText value=new EditText(this);value.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_SIGNED);value.setText(""+project.shiftMs);
-        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Front delay, milliseconds (-5000 to 5000)").setView(value).setNegativeButton("Cancel",null).setPositiveButton("Apply",null).create();
-        dialog.setOnShowListener(v->dialog.getButton(-1).setOnClickListener(w->{try{int n=Integer.parseInt(value.getText().toString());if(Math.abs((long)n)>5000)throw new IllegalArgumentException();project.shiftMs=n;dialog.dismiss();refresh();}catch(Exception e){value.setError("Enter -5000 to 5000");}}));dialog.show();
-    }
-    static String seconds(long ms){return java.math.BigDecimal.valueOf(ms,3).stripTrailingZeros().toPlainString();}
-    static long parseMs(String s){return new java.math.BigDecimal(s.trim()).movePointRight(3).longValueExact();}
-    void prepare() {
+    void overlayPanel(String key,String label){controls.removeAllViews();heading(label);if(!key.equals("brand")){String dataKey=key.equals("hud")?"speed":key.equals("map")?"route":"time";int style=recipe.number("social_overlay",0);boolean on=style==4?recipe.number("overlay_"+dataKey,1)==1:SocialProfile.overlay(style,dataKey);option(on?"Visible: on":"Visible: off",()->{remember();customStyle();setting("overlay_"+dataKey,on?0:1);refresh();});}hint("Drag on the preview to position this group.");slider("Size %","studio_"+key+"_scale",50,160,100);if(!key.equals("brand"))slider("Panel opacity","overlay_alpha",0,255,210);if(key.equals("hud"))option("Speed units",()->choice("Speed units",new String[]{"km/h","mph"},i->setting("overlay_mph",i)));if(key.equals("map")){option("Map view",()->choice("Map camera",new String[]{"Follow the bike","Whole ride"},i->setting("overlay_follow",i==0?1:0)));option("Map coverage",()->choice("Map coverage",new String[]{"250 metres","500 metres","1 kilometre","2 kilometres"},i->setting("overlay_zoom",new int[]{250,500,1000,2000}[i])));}option("Accent colour",this::colour);option("Back to overlays",()->{target="";positions.invalidate();showTool();});}
+    void customStyle(){int style=recipe.number("social_overlay",0);if(style!=4)for(String key:SocialProfile.overlayKeys())setting("overlay_"+key,SocialProfile.overlay(style,key)?1:0);setting("social_overlay",4);}
+    void selectTarget(String key){target=key;positions.invalidate();message("Drag on the video to position "+(key.equals("pip")?"front camera":key));}
+    void customData(){String[] keys={"speed","time","distance","route","altitude","heading","accuracy","battery","camera"};boolean[] on=new boolean[keys.length];for(int i=0;i<keys.length;i++)on[i]=recipe.number("social_overlay",0)==4?recipe.number("overlay_"+keys[i],i==0||i==1||i==3?1:0)==1:SocialProfile.overlay(recipe.number("social_overlay",0),keys[i]);new AlertDialog.Builder(this).setTitle("Recorded ride data").setMultiChoiceItems(keys,on,(d,i,v)->on[i]=v).setNegativeButton("Cancel",null).setPositiveButton("Apply",(d,w)->{remember();setting("social_overlay",4);for(int i=0;i<keys.length;i++)setting("overlay_"+keys[i],on[i]?1:0);refresh();}).show();}
+    void colour(){choice("Accent / text colour",new String[]{"RideDeck blue","White","Amber","Mint","Pink"},i->setting("studio_color",new int[]{0xff90c8ff,Color.WHITE,0xffffbf69,0xff7be6b7,0xffffa9d7}[i]));}
+    void editText(){EditText value=new EditText(this);value.setText(recipe.text("studio_text",""));value.setHint("Your ride title or caption");value.setMaxLines(4);value.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(200)});new AlertDialog.Builder(this).setTitle("Title / caption").setView(value).setNegativeButton("Cancel",null).setPositiveButton("Apply",(d,w)->{remember();setting("studio_text",value.getText().toString());refresh();}).show();}
+    void textTiming(){rangeDialog("Text appears / disappears, seconds",recipe.number("studio_text_start",0),Math.min(project.durationMs(),recipe.number("studio_text_end",(int)project.durationMs())),project.durationMs(),(a,b)->{setting("studio_text_start",(int)a);setting("studio_text_end",(int)b);});}
+    interface RangeAction{void apply(long a,long b);}
+    void rangeDialog(String title,long start,long end,long limit,RangeAction action){LinearLayout fields=new LinearLayout(this);fields.setOrientation(LinearLayout.VERTICAL);EditText from=new EditText(this),to=new EditText(this);from.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);to.setInputType(from.getInputType());from.setHint("Start seconds");to.setHint("End seconds");from.setText(seconds(start));to.setText(seconds(end));fields.addView(from);fields.addView(to);
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle(title).setView(fields).setNegativeButton("Cancel",null).setPositiveButton("Apply",null).create();dialog.setOnShowListener(v->dialog.getButton(-1).setOnClickListener(w->{try{long a=parseMs(from.getText().toString()),b=parseMs(to.getText().toString());if(a<0||b>limit||b-a<500)throw new IllegalArgumentException();remember();action.apply(a,b);dialog.dismiss();refresh();}catch(Exception e){to.setError("Choose at least 0.5s within "+seconds(limit)+"s");}}));dialog.show();}
+    void trim(int i){SocialProject.Clip clip=project.clips.get(i);rangeDialog("Trim clip "+(i+1),clip.fromMs,clip.toMs,clip.durationMs,(a,b)->{clip.fromMs=a;clip.toMs=b;seekMs=startOf(i);});}
+    void syncOffset(){EditText value=new EditText(this);value.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_SIGNED);value.setText(""+project.shiftMs);AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Front delay, milliseconds (-5000 to 5000)").setView(value).setNegativeButton("Cancel",null).setPositiveButton("Apply",null).create();dialog.setOnShowListener(v->dialog.getButton(-1).setOnClickListener(w->{try{int n=Integer.parseInt(value.getText().toString());if(Math.abs((long)n)>5000)throw new IllegalArgumentException();remember();project.shiftMs=n;dialog.dismiss();refresh();}catch(Exception e){value.setError("Enter -5000 to 5000");}}));dialog.show();}
+    long startOf(int i){long n=0;for(int j=0;j<i;j++)n+=project.clips.get(j).lengthMs();return n;}
+    void split(){SocialProject.Clip clip=project.clips.get(selected);long time=(player==null?seekMs:player.getCurrentPosition())-startOf(selected)+clip.fromMs;if(time-clip.fromMs<500||clip.toMs-time<500){message("Place the playhead inside this clip, at least 0.5s from either edge");return;}if(project.clips.size()>=30){message("Maximum 30 clips");return;}remember();long old=clip.toMs;clip.toMs=time;project.clips.add(selected+1,new SocialProject.Clip(clip.file,clip.durationMs,time,old));refresh();}
+    void move(int direction){remember();Collections.swap(project.clips,selected,selected+direction);selected+=direction;seekMs=startOf(selected);refresh();}
+    Bundle snapshot(){Bundle b=new Bundle();b.putBundle("project",project.bundle());b.putBundle("recipe",recipe.bundle());return b;}
+    void remember(){if(player!=null)seekMs=player.getCurrentPosition();undo.addLast(snapshot());while(undo.size()>30)undo.removeFirst();redo.clear();}
+    void history(boolean forward){ArrayDeque<Bundle> from=forward?redo:undo,to=forward?undo:redo;if(from.isEmpty())return;to.addLast(snapshot());Bundle b=from.removeLast();try{project=SocialProject.load(this,b.getBundle("project"));recipe=DashSettings.fromBundle(this,b.getBundle("recipe"));refresh();}catch(Exception e){message(e.getMessage());}}
+    void save(boolean notify){if(project==null)return;try{StudioDrafts.save(this,draftId,project.bundle(),recipe.bundle());if(notify)message("Draft saved. Original recordings are unchanged.");}catch(Exception e){message("Could not save draft: "+e.getMessage());}}
+    void drafts(){save(false);List<java.io.File> list=StudioDrafts.list(this);String[] titles=new String[list.size()];for(int i=0;i<titles.length;i++)titles[i]=new java.text.SimpleDateFormat("dd MMM HH:mm:ss",Locale.getDefault()).format(new Date(list.get(i).lastModified()));new AlertDialog.Builder(this).setTitle("Saved edits").setItems(titles,(d,i)->{String id=list.get(i).getName().replace(".draft","");startActivity(new Intent(this,SocialStudioActivity.class).putExtra("draft",id));finish();}).setNeutralButton("Save as new draft",(d,w)->{draftId=UUID.randomUUID().toString();save(true);}).setNegativeButton("Close",null).show();}
+    void exportOptions(){if(!power()||RecordingService.running||RecordingService.finalizing){message("Stop recording and connect charger or charge to 50%");return;}String[] modes={"One merged video","Separate social videos"};new AlertDialog.Builder(this).setTitle("Export · "+seconds(project.durationMs())+"s · about "+(project.durationMs()*recipe.number("social_bitrate",8)/8000)+" MB").setItems(new String[]{modes[project.merge?0:1],"Change merge / batch mode","Quality: "+recipe.number("social_quality",1080)+"p","Save draft"},(d,i)->{if(i==0){save(false);startActivity(new Intent(this,SocialExportActivity.class).putExtra("project",project.bundle()).putExtra("recipe",recipe.bundle()));}else if(i==1)choice("Export mode",modes,n->project.merge=n==0);else if(i==2)choice("Export quality",new String[]{"720p · smaller · 4 Mbps","1080p · clear · 8 Mbps","1080p · high · 16 Mbps"},n->{setting("social_quality",n==0?720:1080);setting("social_bitrate",new int[]{4,8,16}[n]);});else save(true);}).setMessage(null).setNegativeButton("Cancel",null).show();}
+    @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request==41&&result==RESULT_OK&&data!=null&&data.getData()!=null){try{Uri uri=data.getData();getContentResolver().takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);remember();setting("studio_music",uri.toString());String name="Selected audio";try(android.database.Cursor cursor=getContentResolver().query(uri,new String[]{android.provider.OpenableColumns.DISPLAY_NAME},null,null,null)){if(cursor!=null&&cursor.moveToFirst())name=cursor.getString(0);}setting("studio_music_name",name);refresh();}catch(Exception e){message("Cannot use this audio file: "+e.getMessage());}}}
+    void refresh(){if(project==null)return;selected=Math.max(0,Math.min(selected,project.clips.size()-1));seekMs=Math.max(0,Math.min(seekMs,project.durationMs()));timeline.bind(project,selected);scrub.setMax((int)project.durationMs());positions.invalidate();showTool();save(false);prepare();}
+    void prepare(){
+        final int request=++generation;release();firstFrameRendered=false;export.setEnabled(false);
         if(!power()||RecordingService.running||RecordingService.finalizing){status.setText("Stop recording and connect charger or charge to 50%");return;}
-        final int request=++generation;final Bundle spec=project.bundle();final DashSettings frozen=recipe;
-        new Thread(()->{try{
-            SocialProject snapshot=SocialProject.load(this,spec);
-            SocialComposition.Built built=SocialComposition.build(this,snapshot,frozen,false,()->generation!=request);
-            runOnUiThread(()->{if(generation!=request||isFinishing()||isDestroyed())return;
-                try {
-                player=new CompositionPlayer.Builder(this).setVideoGraphFactory(new MultipleInputVideoGraph.Factory()).build();preview.setPlayer(player);
-                player.addListener(new Player.Listener(){@Override public void onRenderedFirstFrame(){if(generation==request)firstFrameRendered=true;}@Override public void onPlayerError(PlaybackException e){if(generation==request)status.setText("Preview failed: "+e.getErrorCodeName()+". Originals are unchanged.");}});
-                player.setComposition(built.composition);player.prepare();preview.hideController();export.setEnabled(true);
-                status.setText(snapshot.pip?"Front PiP matched · "+(built.missingFrontMs>0?seconds(built.missingFrontMs)+"s without front footage":"full selected coverage"):"Ready · preview and export use the same framing and data");
-                }catch(Exception e){release();export.setEnabled(false);status.setText("Preview unavailable: "+e.getMessage());}
-            });
-        }catch(Exception e){runOnUiThread(()->{if(generation==request)status.setText("Preview unavailable: "+e.getMessage());});}},"DashSocialComposition").start();
+        status.setText(recipe.number("studio_stabilize",0)>0?"Analyzing stabilization and preparing preview…":"Preparing preview…");final Bundle spec=project.bundle();final DashSettings frozen=recipe;
+        new Thread(()->{try{SocialProject snapshot=SocialProject.load(this,spec);SocialComposition.Built built=SocialComposition.build(this,snapshot,frozen,false,()->generation!=request||!power()||RecordingService.running||RecordingService.finalizing);
+            runOnUiThread(()->{if(generation!=request||isFinishing()||isDestroyed())return;try{player=new CompositionPlayer.Builder(this).setVideoGraphFactory(new MultipleInputVideoGraph.Factory()).build();preview.setPlayer(player);player.addListener(new Player.Listener(){@Override public void onRenderedFirstFrame(){if(generation==request){firstFrameRendered=true;export.setEnabled(true);}}@Override public void onPlayerError(PlaybackException e){if(generation==request){export.setEnabled(false);status.setText("Preview failed: "+e.getErrorCodeName());}}});player.setComposition(built.composition);player.prepare();player.seekTo(seekMs);
+                status.setText((frozen.number("studio_stabilize",0)>0?"Stabilized preview · ":"Ready · ")+snapshot.clips.size()+" clips · originals kept"+(snapshot.pip&&built.missingFrontMs>0?" · front gaps "+seconds(built.missingFrontMs)+"s":""));
+            }catch(Exception e){release();status.setText("Preview unavailable: "+e.getMessage());}});
+        }catch(Exception e){runOnUiThread(()->{if(generation==request)status.setText("Preview unavailable: "+e.getMessage());});}},"DashStudioPrepare").start();
     }
+    final Runnable tick=new Runnable(){public void run(){if(project==null||!resumed)return;if(!power()||RecordingService.running||RecordingService.finalizing){generation++;release();export.setEnabled(false);status.setText("Preview stopped for recording or battery reserve");}if(player!=null){seekMs=player.getCurrentPosition();if(!scrub.isPressed())scrub.setProgress((int)seekMs);play.setText(player.isPlaying()?"Ⅱ":"▶");timeline.playhead=seekMs;timeline.invalidate();}clock.setText(time(seekMs)+" / "+time(project.durationMs()));handler.postDelayed(this,200);}};
+    static String time(long ms){return String.format(Locale.ROOT,"%02d:%02d",ms/60000,ms/1000%60);}
+    static String seconds(long ms){return java.math.BigDecimal.valueOf(ms,3).stripTrailingZeros().toPlainString();}
+    static long parseMs(String value){return new java.math.BigDecimal(value.trim()).movePointRight(3).longValueExact();}
+    void message(String value){Toast.makeText(this,value,Toast.LENGTH_LONG).show();}
     boolean power(){Intent b=registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));return b!=null&&RecordingGate.evaluate(b.getIntExtra(BatteryManager.EXTRA_PLUGGED,0)!=0,RecordingGate.batteryPercent(b.getIntExtra(BatteryManager.EXTRA_LEVEL,-1),b.getIntExtra(BatteryManager.EXTRA_SCALE,-1)),true,false)==RecordingGate.Result.ALLOWED;}
-    final Runnable recordingGuard=new Runnable(){public void run(){if(!power()||RecordingService.running||RecordingService.finalizing){generation++;release();export.setEnabled(false);status.setText("Preview stopped for recording or battery reserve. Return when ready.");return;}handler.postDelayed(this,500);}};
     void release(){if(player!=null){preview.setPlayer(null);player.release();player=null;}}
-    @Override protected void onSaveInstanceState(Bundle b){if(project!=null)b.putBundle("project",project.bundle());super.onSaveInstanceState(b);}
-    @Override protected void onStop(){generation++;handler.removeCallbacksAndMessages(null);release();super.onStop();}
-    @Override protected void onDestroy(){generation++;release();super.onDestroy();}
+    @Override protected void onSaveInstanceState(Bundle b){if(project!=null){b.putBundle("project",project.bundle());b.putBundle("recipe",recipe.bundle());b.putString("draft",draftId);b.putInt("selected",selected);b.putLong("seek",seekMs);b.putString("tool",tool);}super.onSaveInstanceState(b);}
+    @Override protected void onStop(){resumed=false;save(false);generation++;handler.removeCallbacksAndMessages(null);release();super.onStop();}
+    @Override protected void onDestroy(){generation++;release();if(timeline!=null)timeline.close();super.onDestroy();}
+    final class PositionLayer extends View {
+        final Paint p=new Paint(3);float x,y;boolean dragging;
+        PositionLayer(){super(SocialStudioActivity.this);setContentDescription("Overlay position canvas");}
+        RectF canvas(){int[] size=SocialProfile.dimensions(recipe.number("social_ratio",0),recipe.number("social_quality",1080));float scale=Math.min(getWidth()/(float)size[0],getHeight()/(float)size[1]),w=size[0]*scale,h=size[1]*scale;return new RectF((getWidth()-w)/2,(getHeight()-h)/2,(getWidth()+w)/2,(getHeight()+h)/2);}
+        @Override protected void onDraw(Canvas c){RectF r=canvas();p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(1));p.setColor(0x6690c8ff);if(guides&&tool.equals("Crop")){c.drawRect(r.left+r.width()*.05f,r.top+r.height()*.09f,r.right-r.width()*.16f,r.bottom-r.height()*.21f,p);}if(!target.isEmpty()){int a=target.equals("crop")?50:target.equals("pip")?Math.max(3,project.pipX):recipe.number("studio_"+target+"_x",8),b=target.equals("crop")?50:target.equals("pip")?Math.max(3,project.pipY):recipe.number("studio_"+target+"_y",35);p.setColor(0xffffbf69);float px=r.left+r.width()*a/100,py=r.top+r.height()*b/100;c.drawCircle(px,py,dp(12),p);p.setStyle(Paint.Style.FILL);p.setTextSize(dp(12));c.drawText("Move "+target,px+dp(16),py,p);}}
+        @Override public boolean onTouchEvent(MotionEvent e){if(target.isEmpty())return false;RectF r=canvas();if(r.width()<=0||r.height()<=0)return false;if(e.getAction()==MotionEvent.ACTION_DOWN){remember();dragging=true;return true;}if(e.getAction()==MotionEvent.ACTION_MOVE||e.getAction()==MotionEvent.ACTION_UP){if(!dragging)return false;int a=Math.max(0,Math.min(85,Math.round((e.getX()-r.left)/r.width()*100))),b=Math.max(0,Math.min(85,Math.round((e.getY()-r.top)/r.height()*100)));if(target.equals("crop")){setting("studio_pan_x",Math.max(-100,Math.min(100,Math.round((e.getX()-r.centerX())/r.width()*200))));setting("studio_pan_y",Math.max(-100,Math.min(100,Math.round((e.getY()-r.centerY())/r.height()*200))));}else if(target.equals("pip")){project.pipX=a;project.pipY=b;}else{setting("studio_"+target+"_x",a);setting("studio_"+target+"_y",b);}invalidate();if(e.getAction()==MotionEvent.ACTION_UP){dragging=false;performClick();refresh();}return true;}if(e.getAction()==MotionEvent.ACTION_CANCEL){dragging=false;return true;}return true;}
+        @Override public boolean performClick(){super.performClick();return true;}
+    }
 }

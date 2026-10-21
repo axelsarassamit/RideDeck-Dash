@@ -1,46 +1,41 @@
-# Social video export
+# Social video editor
 
-## Multi-clip studio (0.9.0)
+## Open and assemble
 
-In Recordings, choose **Select clips**, mark up to 30 recordings, then **Social export / merge selected**. A single clip's **Social studio / front PiP** action opens the same studio. Reorder with Move up/down, remove an item from the project without deleting its original, and set a separate in/out range for each clip. The initial selection uses the full clips; **Apply preset trim to every clip** applies the chosen preset start/length individually. Selected output can total up to 30 minutes. Long source selections can be trimmed down before preview/export becomes available.
+In Recordings, use **Edit video** on one recording, or **Select clips** then **Social export / merge selected**. Both open the same timeline editor. The former single-clip and overlay-export editors have been removed.
 
-Choose **Merge into one video** for straight cuts in the displayed order, or **Separate social videos** for one gallery copy per selected clip. Platform, output dimensions, bitrate, framing, sound and telemetry use the existing social presets. Existing saved-settings slots remain accessible there. The whole sequence has a playable composition preview in portrait or landscape. Main-clip audio is retained unless muted; front PiP audio is always muted, and missing main audio produces silence.
+The large preview shows the composed output. Portrait places the timeline and tools below it; landscape places the timeline and tools beside it. Swipe the bottom tool strip for Clips, Crop, Front camera, Overlays, Text, Sound, Adjust and Stabilize.
 
-For **Front camera as picture-in-picture**, select rear clips as the main view. Rear footage fills the output canvas by default, with **Keep whole picture** available when crop would hide important detail. The front is a small rounded corner inset, matching the live Dash layout. It keeps its native aspect ratio, fits within the chosen fraction of output width/height, and adds no letterbox strips. Matching front clips must be finalized originals from the same ride with recorded monotonic start timestamps. Matching follows time intersections across different camera rollovers, not matching file numbers. Missing front sections hide PiP rather than stretching or freezing unrelated footage. If nothing matches, export is blocked with a clear message. Four corner positions, 20/28/36% sizes, and a front timing offset of up to ±5000 milliseconds are available. Positive offset delays the front view. Capture-start timestamps can have small startup offsets; inspect the preview and adjust when needed. This is not a claim of frame-accurate hardware synchronization.
+Tap a thumbnail strip to choose a clip and seek. Drag its amber trim handles, or use Trim for precise decimal-second boundaries. Split at the playhead, duplicate, move left/right, or remove a section. Removal only changes the edit. Undo/redo keeps up to 30 steps during the current editor instance. Up to 30 sections and 30 minutes of selected output are supported. Split and duplicate can reference the same original safely.
 
-Branding is drawn after composition, so PiP cannot hide the RideDeck mark. The studio uses local telemetry and route trace consistently in preview/export; downloaded road-network context and experimental motion stabilization remain in the separate single-clip export workflow. No automatic social upload is performed.
+## Picture and overlays
 
-Exports are processed sequentially in the foreground. Leaving, rotating, starting recording or losing the charging-or-50% battery reserve cancels the unfinished item. Earlier completed batch videos remain saved and shareable. A partial pending gallery item is removed. Project order, trims and PiP options survive studio recreation/rotation; they are not a permanently saved project library.
+- Crop: 9:16 for TikTok/Reels/Stories, 4:5 feed, square 1:1, or landscape 16:9. Fill or retain the whole picture; zoom and pan with sliders or drag framing on the preview after zooming. Safe-area guides are editor-only visual aids, not platform guarantees.
+- Front camera: the rear is the main picture and the front is a small, rounded inset. Change its size, snap to a corner, or drag its position. Front timestamps must come from finalized same-ride footage. Missing intervals hide PiP. Offset adjustment supports -5000 to 5000 milliseconds; capture-start matching is not frame-accurate hardware synchronization. Front audio is muted.
+- Overlays: logo-only, speed, ride/map, all data or custom selection. Position and size the RideDeck mark, speed/data group, clock and route map separately. Adjust panel opacity, accent colour, speed units, map follow/overview and coverage. Branding is mandatory and drawn last. The map uses recorded GPS with a moving bike and offline trace; this editor does not download road tiles. Unrecorded data remains unavailable.
+- Text: one multi-line title/caption, up to 200 characters, with output start/end times, position, size, font, colour and optional dark background. It stays on the project output timeline across cuts. Batch exports restart that timeline for each separate output.
+- Adjust: brightness, contrast, saturation, Natural/Clear road/Soft/Black & white looks.
 
-## Video editor (0.8.1)
+Preview/export share the same framing, colour, audio and overlay recipe. Native portrait front footage retains its shape in the PiP.
 
-Choose a clip's Single-clip stabilization editor action to open the original playable editor. Portrait uses a preview above the controls; landscape places them side by side. Set the in/out points, apply the trim, then replay that section. Format, framing, sound and overlay choices remain available through the presets screen, including the three saved app settings slots.
+## Sound and stabilization
 
-Stabilization starts off in a new editor session. Its experimental preview analyzes only the selected section when explicitly requested; Off, Gentle, Strong and Maximum remain selectable. The editor and export share framing and telemetry effects. The preview shows recorded audio or mute; export-only wind filtering and downloaded road context can differ. Export freezes the chosen settings and writes a separate gallery copy, without a second settings prompt. No source file is modified and nothing is posted automatically.
+Recorded sound has volume and mute controls. Add a local audio document as music, set its volume, remove it or replace it. Music begins at project time zero and stops at its file end or project end. The music document permission is retained, but deleting/moving the source can make it unavailable. The original and music are mixed; there are no separately captured voice/road stems. Optional 0.5-second fades apply at each main clip edge and the music's ends. Wind-rumble reduction is a low-frequency filter, not speech isolation. Preview and export use these processors.
 
-Leaving or rotating during analysis cancels that analysis. Applied trim/settings and draft sliders survive rotation; playback restarts paused. Set either boundary from the current playhead or the sliders, then apply the trim before export. Playback releases its decoder when the editor leaves the screen or capture starts, so it does not keep competing with recording. This is a single-clip editor; multi-clip assembly, captions, music and transitions are not implemented.
+Stabilize offers Off, Gentle (12% zoom), Strong (22%) and Maximum (35%). It analyzes each selected main-clip trim before preparing the playable preview. Export uses the same correction; PiP is unaffected. Analyses are cached in bounded memory for reuse, not permanently stored as a project requirement. Analysis restarts if necessary after process death. Feature-poor footage can fail analysis; turn stabilization off or select a different section. It remains experimental and cannot reliably reconstruct missing frames, severe blur or rolling-shutter distortion. No new road-quality claim follows from synthetic tests.
 
-These are editable starting settings, not platform upload guarantees. Platforms can change limits and recompress videos. The app prepares a video and opens the Android share chooser; it never posts automatically.
+## Saved edits and export
 
-| Target | Default format | Detailed output |
-| --- | --- | --- |
-| TikTok, Instagram Reel/Story, Facebook Reel/Story | 9:16 | 1080 × 1920 |
-| Instagram/Facebook feed | 4:5 | 1080 × 1350 |
-| Custom square | 1:1 | 1080 × 1080 |
-| Facebook landscape / custom landscape | 16:9 | 1920 × 1080 |
+Edits auto-save in private app storage. Use Drafts / Save as new draft for another copy, and reopen from Saved video edits in Recordings. Order, trims, PiP and the complete editor recipe survive closing and recreation. Undo history is not persisted. Drafts reference original recordings and music; they are not backups and cannot restore a source removed by the user or loop recycling.
 
-Platform defaults use 8 Mbps H.264 MP4, preserve recorded audio with AAC and keep the entire picture with bars where required. Center crop fills the format; the framing preview shows removed edges. 720 quality and 4/6/8/12/16 Mbps are available. Export drops frames above 30 fps; it does not invent missing source frames. The recorder targets 30 fps.
+Export one merged video or separate social copies. Choose 720p/4 Mbps, 1080p/8 Mbps or 1080p/16 Mbps; the export menu estimates video size. Outputs use H.264 MP4 with AAC audio, with output cadence capped at 30 fps. There is no automatic posting. Save/share the finished video, then add platform music, descriptions and publish in the social app.
 
-Quick highlight selects the first 15 seconds with no overlays. Ride story selects up to 60 seconds with speed and branding. Route tour selects up to 60 seconds with speed, time, distance, route trace and branding. Clean full clip uses the remaining recording without telemetry. Start time and length are editable; length 0 means the remaining clip. Short clips stop at their actual end. Invalid starts are rejected. Route overlays reveal location history and audio may include conversations.
+Copies go to Movies/RideDeckDash/Social. Leaving, rotating, starting recording or losing the charger-or-50% editing reserve cancels the unfinished export. Completed batch copies remain saved. Originals and recording settings are preserved. Recording itself retains its separate five-minute unplugged grace and 30% minimum.
 
-Exports go to Movies/RideDeckDash/Social. Internal videos, protection markers and ride CSVs are retained. Stop recording first and stay on the export screen. Leaving or rotating cancels an unfinished export. Battery must be at least 50% or charging, checked continuously. Unsupported encoder output fails instead of silently changing dimensions.
+## Recording library
 
-Prepare detailed recording sets the next recording to 1080p, 12 Mbps per camera, 256 MB clips and a 16 GB loop limit. Camera, microphone and automation choices remain selected. Sustained dual-camera performance and road stabilization still require separate validation.
+Recordings show small video thumbnails. Sort by newest, oldest, name, largest or smallest. Filter all/rear/front/protected. Sort/filter preferences survive reopening. Select visible adds the visible set; hidden selected clips remain selected and count toward export/deletion. Clear selection clears the whole selection. Thumbnail decoding pauses during recording/finalization to protect capture resources.
 
-## Three saved settings slots
+## App presets
 
-Save, load after confirmation, replace or remove a named slot. The complete configuration includes capture, camera, microphone, storage, automation, overlays and social settings. Loading one slot retains the others. Footage and companion authentication state are not part of a preset. Loading is blocked during recording/finalization. A saved microphone must still be connected and available.
-
-## Format guidance checked 11 October 2026
-
-TikTok recommends vertical 9:16 and supports MP4 in its official [in-feed creative specifications](https://ads.tiktok.com/resources/help/article/tiktok-auction-in-feed-ads?lang=en-GB). Meta discusses vertical 9:16 for [Facebook and Instagram Reels](https://www.facebook.com/business/ads/facebook-instagram-reels-ads). These advertising references inform the vertical starting format; they do not certify every organic post type, duration or account-specific publishing flow. Pixel dimensions, bitrate and purpose durations above are RideDeck Dash choices. No maximum platform duration is enforced as a universal rule.
+Existing social defaults and the three named saved app-settings slots remain in Setup. These are separate from per-video drafts. Loading an app-settings slot changes recording/audio/storage/automation and social defaults only after confirmation; footage and companion authentication are not part of a preset. Existing projects keep their frozen editor recipe.

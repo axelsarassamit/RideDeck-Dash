@@ -37,12 +37,16 @@ public class SocialExportTest {
         Map<String,Object> options=new HashMap<>();options.put("social_ratio",3);options.put("social_quality",720);options.put("social_bitrate",4);options.put("social_overlay",0);options.put("social_mute",0);options.put("overlay_roads",0);recipe=new DashSettings(c,options);
     }
     @After public void cleanup() {
+        for(File draft:StudioDrafts.list(c))try{Bundle b=StudioDrafts.read(c,draft.getName().replace(".draft",""));ArrayList<String> paths=b.getBundle("project").getStringArrayList("paths");if(paths!=null&&!paths.isEmpty()&&paths.stream().allMatch(path->path.startsWith(ride.getPath()+File.separator)))draft.delete();}catch(Exception ignored){}
         for(Uri uri:gallery)c.getContentResolver().delete(uri,null,null);
         for(File f:outputs)f.delete();
         if(ride!=null&&ride.getName().startsWith("social-test-")){File[] files=ride.listFiles();if(files!=null)for(File f:files)f.delete();ride.delete();}
     }
     File render(SocialProject spec)throws Exception {
-        SocialComposition.Built built=SocialComposition.build(c,spec,recipe,true,()->false);
+        return render(spec,recipe);
+    }
+    File render(SocialProject spec,DashSettings settings)throws Exception {
+        SocialComposition.Built built=SocialComposition.build(c,spec,settings,true,()->false);
         File output=File.createTempFile("social-verify-",".mp4",c.getCacheDir());output.delete();outputs.add(output);
         CountDownLatch done=new CountDownLatch(1);Throwable[] error={null};Transformer[] exporter={null};
         InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{exporter[0]=new Transformer.Builder(c).setPortraitEncodingEnabled(true).setVideoMimeType(MimeTypes.VIDEO_H264).setAudioMimeType(MimeTypes.AUDIO_AAC)
@@ -51,8 +55,24 @@ public class SocialExportTest {
         if(error[0]!=null)throw new AssertionError("Real export failed",error[0]);return output;
     }
     int colour(MediaMetadataRetriever r,long timeUs,float x,float y){Bitmap b=r.getFrameAtTime(timeUs,MediaMetadataRetriever.OPTION_CLOSEST);assertNotNull(b);int value=b.getPixel((int)(b.getWidth()*x),(int)(b.getHeight()*y));b.recycle();return value;}
+    double[] sound(File file)throws Exception {
+        android.media.MediaExtractor extractor=new android.media.MediaExtractor();android.media.MediaCodec decoder=null;
+        try{extractor.setDataSource(file.getPath());android.media.MediaFormat format=null;for(int i=0;i<extractor.getTrackCount();i++)if(extractor.getTrackFormat(i).getString("mime").startsWith("audio/")){extractor.selectTrack(i);format=extractor.getTrackFormat(i);break;}assertNotNull(format);
+            decoder=android.media.MediaCodec.createDecoderByType(format.getString("mime"));decoder.configure(format,null,null,0);decoder.start();boolean inputDone=false,outputDone=false;android.media.MediaCodec.BufferInfo info=new android.media.MediaCodec.BufferInfo();
+            double early=0,middle=0;int earlyCount=0,middleCount=0,crossings=0,last=0,channels=format.getInteger("channel-count"),rate=format.getInteger("sample-rate");
+            for(int n=0;n<3000&&!outputDone;n++){
+                if(!inputDone){int index=decoder.dequeueInputBuffer(1000);if(index>=0){java.nio.ByteBuffer buffer=decoder.getInputBuffer(index);int size=extractor.readSampleData(buffer,0);if(size<0){decoder.queueInputBuffer(index,0,0,0,android.media.MediaCodec.BUFFER_FLAG_END_OF_STREAM);inputDone=true;}else{decoder.queueInputBuffer(index,0,size,extractor.getSampleTime(),0);extractor.advance();}}}
+                int index=decoder.dequeueOutputBuffer(info,1000);if(index==android.media.MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){android.media.MediaFormat f=decoder.getOutputFormat();channels=f.getInteger("channel-count");rate=f.getInteger("sample-rate");}
+                if(index>=0){java.nio.ByteBuffer b=decoder.getOutputBuffer(index).order(java.nio.ByteOrder.nativeOrder());b.position(info.offset);b.limit(info.offset+info.size);int frame=0;while(b.remaining()>=channels*2){int sample=b.getShort();for(int k=1;k<channels;k++)b.getShort();long time=info.presentationTimeUs+frame++*1000000L/rate;
+                    if(time>=0&&time<100000){early+=(double)sample*sample;earlyCount++;}if(time>=1000000&&time<2000000){middle+=(double)sample*sample;middleCount++;if(last<=0&&sample>0)crossings++;last=sample;}
+                }outputDone=(info.flags&android.media.MediaCodec.BUFFER_FLAG_END_OF_STREAM)!=0||info.presentationTimeUs>2100000;decoder.releaseOutputBuffer(index,false);}
+            }assertTrue(middleCount>rate/2);return new double[]{Math.sqrt(early/Math.max(1,earlyCount)),Math.sqrt(middle/middleCount),crossings*rate/(double)middleCount};
+        }finally{if(decoder!=null){decoder.stop();decoder.release();}extractor.release();}
+    }
     void red(int v){assertTrue("Expected red, got "+Integer.toHexString(v),Color.red(v)>160&&Color.blue(v)<80&&Color.green(v)<80);}
     void blue(int v){assertTrue("Expected blue, got "+Integer.toHexString(v),Color.blue(v)>160&&Color.red(v)<80);}
+    android.view.View text(android.view.View view,String value){if(view instanceof android.widget.TextView&&value.contentEquals(((android.widget.TextView)view).getText()))return view;if(view instanceof android.view.ViewGroup){android.view.ViewGroup group=(android.view.ViewGroup)view;for(int i=0;i<group.getChildCount();i++){android.view.View found=text(group.getChildAt(i),value);if(found!=null)return found;}}return null;}
+    void thumbnails(android.view.View view,List<android.widget.ImageView> images){if(view instanceof android.widget.ImageView&&view.getTag() instanceof String&&((String)view.getTag()).contains(".mp4:"))images.add((android.widget.ImageView)view);if(view instanceof android.view.ViewGroup){android.view.ViewGroup group=(android.view.ViewGroup)view;for(int i=0;i<group.getChildCount();i++)thumbnails(group.getChildAt(i),images);}}
     @Test public void mergedOrderDurationAndMainAudioArePreserved()throws Exception {
         File file=render(project);try(MediaMetadataRetriever r=new MediaMetadataRetriever()){
             r.setDataSource(file.getPath());assertEquals(6000,Long.parseLong(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)),250);
@@ -96,5 +116,35 @@ public class SocialExportTest {
                 try(OutputStream out=new FileOutputStream(new File(directory,expected==1?"portrait.png":"landscape.png"))){shot.compress(Bitmap.CompressFormat.PNG,100,out);}finally{shot.recycle();}
             }
         }
+    }
+    @Test public void timelineSplitUndoAndPersistentDraftKeepIndependentRanges()throws Exception {
+        Intent intent=new Intent(c,SocialStudioActivity.class).putExtra("project",project.bundle()).putExtra("recipe",recipe.bundle());final String[] id={null};
+        try(ActivityScenario<SocialStudioActivity> scenario=ActivityScenario.launch(intent)){
+            scenario.onActivity(a->{a.selected=0;a.seekMs=1500;a.release();a.split();assertEquals(3,a.project.clips.size());assertEquals(1500,a.project.clips.get(0).toMs);assertEquals(1500,a.project.clips.get(1).fromMs);a.history(false);assertEquals(2,a.project.clips.size());a.history(true);assertEquals(3,a.project.clips.size());a.setting("studio_text","Ride title");a.setting("studio_text_start",500);a.project.pipX=60;a.project.pipY=10;a.save(false);id[0]=a.draftId;});
+            Thread.sleep(500);scenario.onActivity(a->{android.view.View split=text(a.controls,"Split"),trim=text(a.controls,"Trim"),duplicate=text(a.controls,"Duplicate");assertNotNull(split);assertNotNull(trim);assertNotNull(duplicate);assertTrue("Clip actions must share the row",trim.getLeft()>split.getLeft()&&duplicate.getLeft()>trim.getLeft());assertTrue("Duplicate must fit inside editor",duplicate.getRight()<=a.controls.getWidth());});
+        }
+        Bundle draft=StudioDrafts.read(c,id[0]);SocialProject restored=SocialProject.load(c,draft.getBundle("project"));assertEquals(3,restored.clips.size());assertEquals(6000,restored.durationMs());assertEquals(60,restored.pipX);assertEquals("Ride title",draft.getBundle("recipe").getString("studio_text"));
+    }
+    @Test public void recordingsHaveDecodedThumbnailsAndRememberSortingAndCameraFilter()throws Exception {
+        android.content.SharedPreferences prefs=c.getSharedPreferences("clip-library",Context.MODE_PRIVATE);boolean hadSort=prefs.contains("sort"),hadFilter=prefs.contains("filter");int oldSort=prefs.getInt("sort",0),oldFilter=prefs.getInt("filter",0);
+        prefs.edit().putInt("sort",0).putInt("filter",1).commit();
+        try(ActivityScenario<ClipsActivity> scenario=ActivityScenario.launch(new Intent(c,ClipsActivity.class))){
+            boolean ready=false;for(int n=0;n<100;n++){boolean[] decoded={false};scenario.onActivity(a->{List<android.widget.ImageView> images=new ArrayList<>();thumbnails(a.getWindow().getDecorView(),images);for(android.widget.ImageView image:images)if(((String)image.getTag()).startsWith(ride.getPath())&&image.getDrawable()!=null)decoded[0]=true;});if(decoded[0]){ready=true;break;}Thread.sleep(100);}assertTrue("Recording thumbnail must decode",ready);
+            scenario.recreate();scenario.onActivity(a->{assertNotNull(text(a.getWindow().getDecorView(),"Newest first"));assertNotNull(text(a.getWindow().getDecorView(),"Rear camera"));List<android.widget.ImageView> images=new ArrayList<>();thumbnails(a.getWindow().getDecorView(),images);long previous=Long.MAX_VALUE;for(android.widget.ImageView image:images){String tag=(String)image.getTag(),path=tag.substring(0,tag.lastIndexOf(':'));File file=new File(path);assertTrue(file.getName().startsWith("rear-"));assertTrue(file.lastModified()<=previous);previous=file.lastModified();}});
+        }finally{android.content.SharedPreferences.Editor editor=prefs.edit();if(hadSort)editor.putInt("sort",oldSort);else editor.remove("sort");if(hadFilter)editor.putInt("filter",oldFilter);else editor.remove("filter");editor.commit();}
+    }
+    @Test public void adjustedVideoWithTimedTextAndMusicUsesRealComposition()throws Exception {
+        Map<String,Object> values=new HashMap<>(recipe.snapshot);values.put("studio_saturation",-100);values.put("studio_text","RIDE");values.put("studio_text_x",20);values.put("studio_text_y",40);values.put("studio_text_scale",12);values.put("studio_color",Color.WHITE);values.put("studio_text_start",1000);values.put("studio_text_end",2500);
+        values.put("studio_music",androidx.core.content.FileProvider.getUriForFile(c,BuildConfig.APPLICATION_ID+".updates",project.clips.get(1).file).toString());values.put("studio_music_volume",25);values.put("studio_volume",0);values.put("studio_fade",500);
+        File output=render(project,new DashSettings(c,values));try(MediaMetadataRetriever r=new MediaMetadataRetriever()){r.setDataSource(output.getPath());int pixel=colour(r,500000,.5f,.5f);assertTrue(Math.abs(Color.red(pixel)-Color.blue(pixel))<8);assertEquals("yes",r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO));
+            Bitmap early=r.getFrameAtTime(500000,MediaMetadataRetriever.OPTION_CLOSEST),title=r.getFrameAtTime(1500000,MediaMetadataRetriever.OPTION_CLOSEST);int brightEarly=0,brightTitle=0;for(int y=early.getHeight()/4;y<early.getHeight()/2;y++)for(int x=early.getWidth()/5;x<early.getWidth()/2;x++){if(Color.red(early.getPixel(x,y))>220)brightEarly++;if(Color.red(title.getPixel(x,y))>220)brightTitle++;}early.recycle();title.recycle();assertTrue("Timed title should appear in output",brightTitle>brightEarly+100);
+        }
+        double[] audio=sound(output);assertTrue("Imported music must be audible",audio[1]>100);assertEquals("Music tone should replace the zero-volume original",660,audio[2],30);assertTrue("Fade-in should soften the opening",audio[0]<audio[1]*.4);
+    }
+    @Test public void stabilizationIsSharedByPreviewAndExportAndHonorsCancellation()throws Exception {
+        File file=new File(ride,"rear-shake.mp4");try(InputStream in=InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("social/shake.mp4");OutputStream out=new FileOutputStream(file)){byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1)out.write(b,0,n);}ClipStore.mark(file,".ready");
+        SocialProject p=SocialProject.load(c,SocialProject.selection(Collections.singletonList(file.getPath())));Map<String,Object> options=new HashMap<>(recipe.snapshot);options.put("studio_stabilize",1);DashSettings stable=new DashSettings(c,options);
+        SocialComposition.Built preview=SocialComposition.build(c,p,stable,false,()->false);assertEquals(4000,preview.durationMs);File output=render(p,stable);try(MediaMetadataRetriever r=new MediaMetadataRetriever()){r.setDataSource(output.getPath());assertEquals(4000,Long.parseLong(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)),250);assertNotNull(r.getFrameAtTime(2000000));}
+        try{SocialComposition.build(c,p,stable,true,()->true);fail("Cancelled project must not export");}catch(IOException expected){}
     }
 }
