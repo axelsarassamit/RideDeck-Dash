@@ -1,15 +1,9 @@
-# RideDeck Dash 0.8.11
+# RideDeck Dash 0.9.0
 
-The complete approved Roadline layout replaces the earlier styling-only pass. The camera now occupies a fitted, rounded viewport beneath a compact header. Transparent telemetry stays over the footage. Record, Stop and Protect are grouped below, with Recordings and Setup in a separate secondary row. Recording status remains amber, and unavailable actions are visibly disabled. Native dialogs and appearance themes use the same palette as the screens.
+Select several clips in Recordings to export separate social videos or merge them into one. The social studio includes clip order, individual trims, platform presets and a playable preview. Original recordings are preserved.
 
-The shared Velocity R and Roadline identity now appears in the launcher, cockpit and startup sequence. Light and Dark palettes match the RideDeck family. Recording remains amber; speed, GPS and stabilisation stay transparent over the camera view. Initial GPS speed is unavailable until measured, rather than briefly showing zero. Existing recording, storage, power and companion-authentication policies are unchanged. Live riding, call audio and long recording reliability are not established by visual checks.
+Front-camera picture-in-picture keeps the rear camera as the main picture, with a small rounded front view in a selectable corner. Adjust its size and timing, or keep the whole rear picture instead of filling the output. Front clips are matched within the same ride by capture timestamps, including across clip rollovers. Missing front sections remain hidden. Front audio is muted; the main clip supplies sound. Timestamp matching may need manual adjustment and is not a claim of frame-accurate camera synchronization.
 
-## Previous shared menu update
+The live front-camera inset now fills its rounded frame without black borders, with a small edge crop when its shape differs from the camera image. Existing Roadline styling and recording policies are retained.
 
-The approved category list and section tabs now use the same navigation component across Standard, Yamaha and Dash.
-
-General keeps Screen & layout, Headset & sound, Background & power, and Help & app in the same order. Ride contains each app's applicable features. Yamaha-specific bike connection, display/maps, data/ride book, and tests/logs are collected under Yamaha. Standard retains external map apps.
-
-The old accordion and all-in-one Customization menus are removed. Existing working settings and notification, recording, navigation, background and audio policies are retained. Back returns to the category list; section, category and scroll position survive recreation. Setup supports portrait and landscape, using existing System, Light, Dark and accent preferences.
-
-Validation includes the app unit tests and emulator navigation checks in light and dark mode, a 320 dp display, recreation and rotation. Broader lint reports existing errors in unchanged Standard and Yamaha files; no new menu errors were reported. Dash lint passes. Physical calls, motorcycle operation and outdoor recording are separate from this menu update.
+Projects support up to 30 clips and 30 minutes of selected output. Leaving an export cancels its unfinished item; completed copies remain saved. Multi-clip stabilization is not added by this release. The existing single-clip stabilization editor remains available separately.

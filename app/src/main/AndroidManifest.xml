@@ -30,6 +30,8 @@
         <activity android:name=".AudioCheckActivity" android:exported="false" />
         <activity android:name=".SocialSettingsActivity" android:exported="false" />
         <activity android:name=".SocialEditorActivity" android:exported="false" />
+        <activity android:name=".SocialStudioActivity" android:exported="false" />
+        <activity android:name=".SocialExportActivity" android:exported="false" />
         <activity android:name=".OverlayPreviewActivity" android:exported="false" />
         <activity android:name=".OverlaySettingsActivity" android:exported="false" />
         <activity android:name=".OverlayExportActivity" android:exported="false" />

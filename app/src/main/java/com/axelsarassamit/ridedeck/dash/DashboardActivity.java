@@ -18,7 +18,7 @@ public final class DashboardActivity extends Activity {
   FrameLayout stage=new FrameLayout(this);stage.setTag("roadline_camera_frame");DashUi.card(stage,android.graphics.Color.BLACK,12);stage.setClipToOutline(true);
   body.addView(stage,wide?new LinearLayout.LayoutParams(0,-1,1):new LinearLayout.LayoutParams(-1,0,1));
   rear=new ImageView(this);rear.setContentDescription("Rear camera live view");rear.setScaleType(ImageView.ScaleType.FIT_CENTER);stage.addView(rear,new FrameLayout.LayoutParams(-1,-1));
-  front=new ImageView(this);front.setContentDescription("Front camera live view");front.setScaleType(ImageView.ScaleType.FIT_CENTER);DashUi.card(front,android.graphics.Color.BLACK,8);front.setClipToOutline(true);
+  front=new ImageView(this);front.setContentDescription("Front camera live view");front.setScaleType(ImageView.ScaleType.CENTER_CROP);DashUi.card(front,android.graphics.Color.BLACK,8);front.setClipToOutline(true);
   FrameLayout.LayoutParams inset=new FrameLayout.LayoutParams(dp(wide?120:88),dp(wide?68:132),Gravity.TOP|Gravity.END);inset.setMargins(0,dp(12),dp(12),0);stage.addView(front,inset);
   LinearLayout readouts=new LinearLayout(this);readouts.setOrientation(LinearLayout.VERTICAL);readouts.setPadding(dp(8),dp(4),dp(8),dp(8));
   // Only a subtle shadow is applied to telemetry; the camera content stays visible.

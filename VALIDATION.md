@@ -1,5 +1,12 @@
 # RideDeck Dash validation
 
+## 0.9.0 social studio and front inset, 2026-10-21
+
+- Fifty-nine unit tests, debug and signed release builds, and both lint variants passed. The original-signer replacement installed on the authorized Xiaomi 14T Pro, Android 16, preserving user recordings and settings.
+- Four on-phone tests passed using generated footage: merged order/duration and audio presence, front-camera gaps and rollover matching, native portrait front shape with upright colored edges and rounded transparency, two independently saved batch copies, and studio draft recreation plus rendered portrait/landscape previews. Generated test recordings and exported copies were removed by the tests.
+- Live front preview uses center crop to fill its existing rounded inset without letterboxing. Exported PiP retains native front aspect ratio within a small corner box. Rear fill is optional. The composition preview and export share framing and timing logic.
+- Tests establish synthetic short-video behavior, not outdoor stability, long-export heat behavior, audio waveform identity or frame-accurate dual-camera synchronization. No user ride footage was analyzed for this update. The existing experimental single-clip stabilization remains separate.
+
 ## 0.8.4 charger grace, 2026-10-15
 
 - Recording uses a shared persisted monotonic five-minute unplugged allowance with a 30% minimum, independent of GPS. Reconnection resets the allowance. Standalone, signed companion starts and the continuous recording gate use the same policy. The old stationary stop control is replaced with an explanation of the fixed grace rule.
@@ -143,3 +150,4 @@ The final original-signer 0.7.4 build additionally controls preview cadence at t
 Thirty-eight unit checks passed, including NV21 colour order, opaque black/white, all orthogonal rotations, rectangular portrait mapping and partial-input rejection. Debug and original-signer release builds and lint passed. Portrait live preview and the corrected information grouping were inspected on the phone. Android reported no thermal throttling during the checks. Temporary stay-awake was restored to 0, audio mode to normal, and captures were stopped. Existing user recordings were preserved; private media and diagnostics remain excluded from Git.
 
 One earlier short development recording ended without a retained stop reason; its cause was not established. Stop-reason logging and visible recorder faults now make a recurrence diagnosable. No guarantee is made for every headset, future ride, temperature, resolution or system load. Both MA390 and GEARELEC were physically verified in actual video recording; BLE, wired and USB paths remain capability-based but were not all physically tested. Outdoor footage with 0.7.4 remains required to verify sustained riding performance, exposure, vibration and thermal conditions. Phone-plus-headset live mixing remains unimplemented.
+

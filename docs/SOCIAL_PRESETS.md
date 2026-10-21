@@ -1,8 +1,20 @@
 # Social video export
 
+## Multi-clip studio (0.9.0)
+
+In Recordings, choose **Select clips**, mark up to 30 recordings, then **Social export / merge selected**. A single clip's **Social studio / front PiP** action opens the same studio. Reorder with Move up/down, remove an item from the project without deleting its original, and set a separate in/out range for each clip. The initial selection uses the full clips; **Apply preset trim to every clip** applies the chosen preset start/length individually. Selected output can total up to 30 minutes. Long source selections can be trimmed down before preview/export becomes available.
+
+Choose **Merge into one video** for straight cuts in the displayed order, or **Separate social videos** for one gallery copy per selected clip. Platform, output dimensions, bitrate, framing, sound and telemetry use the existing social presets. Existing saved-settings slots remain accessible there. The whole sequence has a playable composition preview in portrait or landscape. Main-clip audio is retained unless muted; front PiP audio is always muted, and missing main audio produces silence.
+
+For **Front camera as picture-in-picture**, select rear clips as the main view. Rear footage fills the output canvas by default, with **Keep whole picture** available when crop would hide important detail. The front is a small rounded corner inset, matching the live Dash layout. It keeps its native aspect ratio, fits within the chosen fraction of output width/height, and adds no letterbox strips. Matching front clips must be finalized originals from the same ride with recorded monotonic start timestamps. Matching follows time intersections across different camera rollovers, not matching file numbers. Missing front sections hide PiP rather than stretching or freezing unrelated footage. If nothing matches, export is blocked with a clear message. Four corner positions, 20/28/36% sizes, and a front timing offset of up to ±5000 milliseconds are available. Positive offset delays the front view. Capture-start timestamps can have small startup offsets; inspect the preview and adjust when needed. This is not a claim of frame-accurate hardware synchronization.
+
+Branding is drawn after composition, so PiP cannot hide the RideDeck mark. The studio uses local telemetry and route trace consistently in preview/export; downloaded road-network context and experimental motion stabilization remain in the separate single-clip export workflow. No automatic social upload is performed.
+
+Exports are processed sequentially in the foreground. Leaving, rotating, starting recording or losing the charging-or-50% battery reserve cancels the unfinished item. Earlier completed batch videos remain saved and shareable. A partial pending gallery item is removed. Project order, trims and PiP options survive studio recreation/rotation; they are not a permanently saved project library.
+
 ## Video editor (0.8.1)
 
-Choose a clip's Social video export action to open the playable editor. Portrait uses a preview above the controls; landscape places them side by side. Set the in/out points, apply the trim, then replay that section. Format, framing, sound and overlay choices remain available through the presets screen, including the three saved app settings slots.
+Choose a clip's Single-clip stabilization editor action to open the original playable editor. Portrait uses a preview above the controls; landscape places them side by side. Set the in/out points, apply the trim, then replay that section. Format, framing, sound and overlay choices remain available through the presets screen, including the three saved app settings slots.
 
 Stabilization starts off in a new editor session. Its experimental preview analyzes only the selected section when explicitly requested; Off, Gentle, Strong and Maximum remain selectable. The editor and export share framing and telemetry effects. The preview shows recorded audio or mute; export-only wind filtering and downloaded road context can differ. Export freezes the chosen settings and writes a separate gallery copy, without a second settings prompt. No source file is modified and nothing is posted automatically.
 

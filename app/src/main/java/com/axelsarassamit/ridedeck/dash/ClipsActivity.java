@@ -22,6 +22,7 @@ public final class ClipsActivity extends Activity {
     private static volatile ClipDeletion.Result pendingDeletion;
     private TextView selectionSummary;
     private Button deleteSelected;
+    private Button socialSelected;
     @Override public void onCreate(Bundle b) { RideAppearance.prepare(this); super.onCreate(b);if(b!=null){selecting=b.getBoolean("selecting");ArrayList<String> saved=b.getStringArrayList("selected");if(saved!=null)selected.addAll(saved);}showList(); }
     @Override protected void onSaveInstanceState(Bundle b){b.putBoolean("selecting",selecting);b.putStringArrayList("selected",new ArrayList<>(selected));super.onSaveInstanceState(b);}
 
@@ -42,16 +43,17 @@ public final class ClipsActivity extends Activity {
             Button all=DashUi.button(this,actions,"Select all",v->{for(File f:files)selected.add(f.getPath());showList();});
             Button clear=DashUi.button(this,actions,"Clear selection",v->{selected.clear();showList();});
             for(Button button:new Button[]{all,clear})button.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
+            socialSelected=DashUi.button(this,page,"Social export / merge selected",v->openStudio(new ArrayList<>(selected)));
             deleteSelected=DashUi.button(this,page,"Delete selected",v->confirmDelete(files));updateSelection(files);
-            DashUi.text(this,page,"Select the clips to remove. Stop recording before deleting. Exported gallery copies and ride data stay saved.",15);
+            DashUi.text(this,page,"Select clips for social export, merging or removal. You can reorder and trim in the studio. For front PiP, select rear clips; simultaneous front footage is matched automatically. Stop recording before editing or deleting.",15);
         }
         if(files.isEmpty()) DashUi.text(this,page,"Your first recording will appear here.",20);
         for(File file:files) {
             String label=(ClipStore.protectedClip(file)?"Protected · ":"")+file.getName()+"\n"+new SimpleDateFormat("dd MMM HH:mm:ss",Locale.getDefault()).format(new Date(file.lastModified()))
                 +" · "+(file.length()/1024/1024)+" MB"+(ClipStore.finalized(file)?"":" · recording / unverified");
             if(selecting){CheckBox box=new CheckBox(this);box.setText(label);box.setTextColor(RideStyle.TEXT);box.setTextSize(16);box.setPadding(12,20,12,20);box.setMinHeight((int)(72*getResources().getDisplayMetrics().density));box.setChecked(selected.contains(file.getPath()));box.setOnCheckedChangeListener((button,on)->{if(on)selected.add(file.getPath());else selected.remove(file.getPath());updateSelection(files);});page.addView(box);continue;}
-            if(getIntent().getBooleanExtra("socialPick",false)){DashUi.button(this,page,label,v->{startActivity(new Intent(this,SocialEditorActivity.class).putExtra("clip",file.getPath()));finish();});continue;}
-            Button clipButton=DashUi.button(this,page,label,v -> new AlertDialog.Builder(this).setTitle(file.getName()).setItems(new String[]{"Play","Share video","Save to gallery","Export with overlays","Save ride data","Show ride map",ClipStore.protectedClip(file)?"Allow loop recycling":"Keep clip","Delete clip","Social video export"},(dialog,item) -> {
+            if(getIntent().getBooleanExtra("socialPick",false)){DashUi.button(this,page,label,v->openStudio(Collections.singletonList(file.getPath())));continue;}
+            Button clipButton=DashUi.button(this,page,label,v -> new AlertDialog.Builder(this).setTitle(file.getName()).setItems(new String[]{"Play","Share video","Save to gallery","Export with overlays","Save ride data","Show ride map",ClipStore.protectedClip(file)?"Allow loop recycling":"Keep clip","Delete clip","Social studio / front PiP","Single-clip stabilization editor"},(dialog,item) -> {
                 if(item==0) play(file);
                 else if(item==1) {
                     if(!ClipStore.finalized(file)) { Toast.makeText(this,"Stop recording before sharing this clip",Toast.LENGTH_LONG).show(); return; }
@@ -67,7 +69,8 @@ public final class ClipsActivity extends Activity {
                             else ClipStore.mark(file,".protected");showList(); }
                         catch(java.io.IOException error){Toast.makeText(this,"Could not change clip protection",Toast.LENGTH_LONG).show();}
                     }).show();
-                else if(item==8)startActivity(new Intent(this,SocialEditorActivity.class).putExtra("clip",file.getPath()));
+                else if(item==8)openStudio(Collections.singletonList(file.getPath()));
+                else if(item==9)startActivity(new Intent(this,SocialEditorActivity.class).putExtra("clip",file.getPath()));
                 else new AlertDialog.Builder(this).setTitle("Delete this clip?").setMessage("This removes the internal video permanently, including a protected clip. Export a copy first if you need it.")
                     .setNegativeButton("Cancel",null).setPositiveButton("Delete clip",(d,w)->{
                         if(RecordingService.running && !ClipStore.finalized(file)) {Toast.makeText(this,"Stop recording before deleting this clip",Toast.LENGTH_LONG).show();return;}
@@ -79,7 +82,12 @@ public final class ClipsActivity extends Activity {
         }
         DashUi.button(this,page,"Back to dashboard",v -> finish());
     }
-    private void updateSelection(List<File> files){long bytes=0;int protectedCount=0,count=0;for(File file:files)if(selected.contains(file.getPath())){count++;bytes+=file.length();if(ClipStore.protectedClip(file))protectedCount++;}selectionSummary.setText(count+" selected · "+String.format(Locale.ROOT,"%.1f MB",bytes/1048576.0)+(protectedCount>0?" · "+protectedCount+" protected":""));deleteSelected.setEnabled(count>0&&!RecordingService.running&&!RecordingService.finalizing);}
+    private void updateSelection(List<File> files){long bytes=0;int protectedCount=0,count=0;for(File file:files)if(selected.contains(file.getPath())){count++;bytes+=file.length();if(ClipStore.protectedClip(file))protectedCount++;}selectionSummary.setText(count+" selected · "+String.format(Locale.ROOT,"%.1f MB",bytes/1048576.0)+(protectedCount>0?" · "+protectedCount+" protected":""));deleteSelected.setEnabled(count>0&&!RecordingService.running&&!RecordingService.finalizing);socialSelected.setEnabled(count>0&&count<=SocialProject.MAX_CLIPS&&!RecordingService.running&&!RecordingService.finalizing);}
+    private void openStudio(Collection<String> paths){
+        if(RecordingService.running||RecordingService.finalizing){Toast.makeText(this,"Stop recording before editing",Toast.LENGTH_LONG).show();return;}
+        if(paths.isEmpty()||paths.size()>SocialProject.MAX_CLIPS){Toast.makeText(this,"Select 1 to "+SocialProject.MAX_CLIPS+" clips",Toast.LENGTH_LONG).show();return;}
+        startActivity(new Intent(this,SocialStudioActivity.class).putExtra("project",SocialProject.selection(paths)));
+    }
     private void confirmDelete(List<File> files){
         if(RecordingService.running||RecordingService.finalizing){Toast.makeText(this,"Stop recording before deleting clips",Toast.LENGTH_LONG).show();return;}
         List<File> chosen=new ArrayList<>();long bytes=0;int protectedCount=0;for(File file:files)if(selected.contains(file.getPath())){chosen.add(file);bytes+=file.length();if(ClipStore.protectedClip(file))protectedCount++;}

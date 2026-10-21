@@ -90,6 +90,7 @@ public final class SocialEditorActivity extends Activity {
             Map<String,Object> recipe=new HashMap<>(new DashSettings(this,true).snapshot);recipe.put("export_stabilization",editorStrength);settings=new DashSettings(this,recipe); stabilization=null; generation++; prepare();
         });
         DashUi.button(this,controls,"Format, framing, sound & overlays",v->{if(!analyzing)startActivity(new Intent(this,SocialSettingsActivity.class).putExtra("clip",clip.getPath()).putExtra("fromEditor",true));});
+        DashUi.button(this,controls,"Open multi-clip / front PiP studio",v->{Bundle b=SocialProject.selection(Collections.singletonList(clip.getPath()));if(appliedRange!=null){b.putLongArray("starts",new long[]{appliedRange[0]});b.putLongArray("ends",new long[]{appliedRange[1]});}startActivity(new Intent(this,SocialStudioActivity.class).putExtra("project",b));});
         DashUi.button(this,controls,"Preview stabilization · experimental",v->{if(analyzing||appliedRange==null)return;new AlertDialog.Builder(this).setTitle("Experimental stabilization preview").setItems(new String[]{"Off · full view","Gentle · 12% zoom","Strong · 22% zoom","Maximum · 35% zoom"},(d,strength)->analyze(strength)).show();});
         export=DashUi.button(this,controls,"Create edited copy",v->{
             if(analyzing)return;
