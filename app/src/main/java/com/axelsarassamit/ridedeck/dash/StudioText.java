@@ -17,7 +17,7 @@ final class StudioText extends BitmapOverlay {
         if(visible!=null)return visible;visible=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);Canvas c=new Canvas(visible);Paint p=new Paint(3);
         p.setTypeface(Typeface.create(settings.number("studio_text_font",0)==1?"sans-serif-condensed":"sans-serif",Typeface.BOLD));
         p.setTextSize(Math.min(width,height)*settings.number("studio_text_scale",6)/100f);
-        p.setColor(settings.number("studio_color",0xff90c8ff));p.setShadowLayer(p.getTextSize()*.08f,0,2,Color.BLACK);
+        p.setColor(settings.number("studio_color",0xff6284ff));p.setShadowLayer(p.getTextSize()*.08f,0,2,Color.BLACK);
         float x=width*settings.number("studio_text_x",8)/100f,y=height*settings.number("studio_text_y",35)/100f;
         for(String line:value.split("\n")){float available=width-x-width*.03f;float size=p.getTextSize();if(p.measureText(line)>available)p.setTextSize(size*available/p.measureText(line));
             if(settings.number("studio_text_bg",1)==1){Paint bg=new Paint(3);bg.setColor(0x990c111b);c.drawRoundRect(x-8,y-p.getTextSize(),Math.min(width-4,x+p.measureText(line)+8),y+p.getTextSize()*.3f,8,8,bg);}c.drawText(line,x,y,p);p.setTextSize(size);y+=size*1.3f;

@@ -1,5 +1,14 @@
 # RideDeck Dash validation
 
+## 0.10.1 preview transport and current overlay identity, 2026-10-21
+
+- Reproduced a paused seek showing the old clip even though the timeline moved. Single-input preview uses its dedicated graph; PiP seeks and video-segment changes rebuild at the requested start position instead of flushing stale compositor frames. Play requests survive preparation. PiP can briefly pause its preview while preparing at a cut; the exported composition is unaffected.
+- Updated Media3 from 1.9.3 to stable 1.11.1. Replaced the custom gain processor with the library's sample-position-aware GainProcessor, retaining volume and fades across seeks. The previous audio-enabled preview could remain stationary while muted preview advanced.
+- Added rendered-frame transport regressions using PixelCopy: a paused jump must show the later blue clip, Play must advance across the red/blue cut, and a timeline tap must return to red. Variants cover main audio, mute, PiP, and music plus wind filtering and gain/fades. Preparation is awaited, with a bounded timeout, before judging displayed pixels.
+- The watermark now draws the same original transparent white/amber Canva PNG as the cockpit. Original R/road and original RideDeck Dash lettering are cropped into a compact horizontal arrangement, not redrawn. One shared decoded bitmap bounds logo memory across clips. The old blue outline export asset is removed. Brand draws once after composition; palette/panels follow Roadline. Direct preview and a real encoded export are checked for the approved amber artwork.
+- The complete thirteen-test phone suite and fifty-nine unit tests passed, along with debug/release build and lint checks. These verify short generated media and preview transport, not long-ride capture quality or a seamless PiP preview at every cut.
+
+
 ## 0.10.0 unified editor and recording library, 2026-10-21
 
 - Replaced the old single-clip and overlay-export activities with one non-destructive timeline editor. Added source trim handles, split/duplicate/reorder/remove, session undo/redo, private persistent drafts, crop/pan, free PiP position, grouped overlay layout, timed text, imported music, gain/fades and colour adjustments. Existing experimental stabilization now runs in the shared preview/export composition.

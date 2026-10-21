@@ -25,6 +25,7 @@ final class SocialEffects {
         effects.add(new HslAdjustment.Builder().adjustSaturation(settings.number("studio_saturation",0)).build());
         if (exporting) effects.add(FrameDropEffect.createDefaultFrameDropEffect(30));
         Map<String,Object> values = new HashMap<>(settings.snapshot);
+        values.put("studio_skip_brand",1); // The mandatory mark is drawn once, after the final composition.
         int style = settings.number("social_overlay", 0);
         if (style != 4) for (String key : SocialProfile.overlayKeys())
             values.put("overlay_" + key, SocialProfile.overlay(style, key) ? 1 : 0);

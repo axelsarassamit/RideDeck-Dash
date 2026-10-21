@@ -41,7 +41,7 @@ final class SocialComposition {
             List<Effect> effects=SocialEffects.create(c,file,recipe,item.fromMs*1000,correction,roads,false);
             List<androidx.media3.common.audio.AudioProcessor> audio=new ArrayList<>();
             if(recipe.number("audio_cutoff",0)>0)audio.add(new WindAudioProcessor(recipe.number("audio_cutoff",0)));
-            audio.add(new StudioAudio(recipe.number("studio_volume",100),item.lengthMs(),recipe.number("studio_fade",0)));
+            audio.add(StudioAudio.create(recipe.number("studio_volume",100),item.lengthMs(),recipe.number("studio_fade",0)));
             rear.addItem(edit(file,item.durationMs,item.fromMs*1000,item.toMs*1000,mute,new Effects(audio,effects)));
             long lengthUs=item.lengthMs()*1000;
             if(p.pip) {
@@ -78,7 +78,7 @@ final class SocialComposition {
             long end=Math.min(p.durationMs(),musicMs);if(end<500)throw new IOException("Music file is too short");
             MediaItem media=new MediaItem.Builder().setUri(uri).setClippingConfiguration(new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(end).build()).build();
             EditedMediaItem item=new EditedMediaItem.Builder(media).setDurationUs(musicMs*1000).setRemoveVideo(true)
-                .setEffects(new Effects(Collections.singletonList(new StudioAudio(recipe.number("studio_music_volume",30),end,recipe.number("studio_fade",0))),Collections.emptyList())).build();
+                .setEffects(new Effects(Collections.singletonList(StudioAudio.create(recipe.number("studio_music_volume",30),end,recipe.number("studio_fade",0))),Collections.emptyList())).build();
             sequences.add(new EditedMediaItemSequence.Builder(Collections.singleton(C.TRACK_TYPE_AUDIO)).addItem(item).build());
         }
         Composition.Builder builder=new Composition.Builder(sequences);
@@ -97,6 +97,7 @@ final class SocialComposition {
         });
         // Branding is drawn after composition so even a top-left PiP cannot obscure it.
         Map<String,Object> brand=new HashMap<>(recipe.snapshot);for(String key:SocialProfile.overlayKeys())brand.put("overlay_"+key,0);
+        brand.put("studio_skip_brand",0);
         List<Effect> finishing=new ArrayList<>();
         if(exporting)finishing.add(FrameDropEffect.createDefaultFrameDropEffect(30));
         finishing.add(new OverlayEffect(Collections.singletonList(new StudioText(recipe))));

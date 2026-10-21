@@ -73,11 +73,40 @@ public class SocialExportTest {
     void blue(int v){assertTrue("Expected blue, got "+Integer.toHexString(v),Color.blue(v)>160&&Color.red(v)<80);}
     android.view.View text(android.view.View view,String value){if(view instanceof android.widget.TextView&&value.contentEquals(((android.widget.TextView)view).getText()))return view;if(view instanceof android.view.ViewGroup){android.view.ViewGroup group=(android.view.ViewGroup)view;for(int i=0;i<group.getChildCount();i++){android.view.View found=text(group.getChildAt(i),value);if(found!=null)return found;}}return null;}
     void thumbnails(android.view.View view,List<android.widget.ImageView> images){if(view instanceof android.widget.ImageView&&view.getTag() instanceof String&&((String)view.getTag()).contains(".mp4:"))images.add((android.widget.ImageView)view);if(view instanceof android.view.ViewGroup){android.view.ViewGroup group=(android.view.ViewGroup)view;for(int i=0;i<group.getChildCount();i++)thumbnails(group.getChildAt(i),images);}}
+    Bitmap previewFrame(ActivityScenario<SocialStudioActivity> scenario)throws Exception {
+        CountDownLatch done=new CountDownLatch(1);int[] result={-1};Bitmap[] frame={null};scenario.onActivity(a->{android.view.SurfaceView view=(android.view.SurfaceView)a.preview.getVideoSurfaceView();frame[0]=Bitmap.createBitmap(view.getWidth(),view.getHeight(),Bitmap.Config.ARGB_8888);android.view.PixelCopy.request(view,frame[0],code->{result[0]=code;done.countDown();},new Handler(Looper.getMainLooper()));});assertTrue(done.await(5,TimeUnit.SECONDS));assertEquals(android.view.PixelCopy.SUCCESS,result[0]);return frame[0];
+    }
+    @Test public void editorSeekAndPlayMustActuallyUpdateVisibleVideo()throws Exception {
+        verifyTransport();
+    }
+    @Test public void editorSeekAndPlayWithFrontPipMustUpdateVisibleVideo()throws Exception {
+        project.pip=true;verifyTransport();
+    }
+    @Test public void mutedEditorSeekAndPlayMustUpdateVisibleVideo()throws Exception {
+        Map<String,Object> options=new HashMap<>(recipe.snapshot);options.put("social_mute",1);recipe=new DashSettings(c,options);verifyTransport();
+    }
+    @Test public void editorMusicAndFilteredAudioMustStillSeekAndPlay()throws Exception {
+        Map<String,Object> options=new HashMap<>(recipe.snapshot);options.put("studio_volume",50);options.put("studio_fade",500);options.put("audio_cutoff",120);options.put("studio_music",androidx.core.content.FileProvider.getUriForFile(c,BuildConfig.APPLICATION_ID+".updates",project.clips.get(1).file).toString());recipe=new DashSettings(c,options);verifyTransport();
+    }
+    void verifyTransport()throws Exception {
+        try(ActivityScenario<SocialStudioActivity> scenario=ActivityScenario.launch(new Intent(c,SocialStudioActivity.class).putExtra("project",project.bundle()).putExtra("recipe",recipe.bundle()))){
+            boolean ready=false;for(int n=0;n<120;n++){boolean[] state={false};scenario.onActivity(a->state[0]=a.firstFrameRendered&&a.player!=null&&a.player.getPlaybackState()==androidx.media3.common.Player.STATE_READY);if(state[0]){ready=true;break;}Thread.sleep(100);}assertTrue("Preview must prepare",ready);
+            scenario.onActivity(a->a.seekPreview(4500));Thread.sleep(1000);scenario.onActivity(a->android.util.Log.i("DashTransportTest","seek position="+a.player.getCurrentPosition()+" duration="+a.player.getDuration()+" state="+a.player.getPlaybackState()+" buffering="+a.player.getBufferedPosition()));Bitmap frame=previewFrame(scenario);try{blue(frame.getPixel(frame.getWidth()/2,frame.getHeight()/2));}finally{frame.recycle();}
+            scenario.onActivity(a->{a.seekPreview(2000);a.play.performClick();});for(int n=0;n<60;n++){boolean[] advanced={false};scenario.onActivity(a->advanced[0]=a.player!=null&&a.firstFrameRendered&&a.player.getCurrentPosition()>3300&&(!a.project.pip||a.segmentAt(a.player.getCurrentPosition())==a.previewSegment));if(advanced[0])break;Thread.sleep(100);}Thread.sleep(100);scenario.onActivity(a->{assertTrue("Play must advance: position="+a.player.getCurrentPosition()+" state="+a.player.getPlaybackState()+" ready="+a.player.getPlayWhenReady()+" suppression="+a.player.getPlaybackSuppressionReason(),a.player.getCurrentPosition()>3200);assertNull(a.player.getPlayerError());});frame=previewFrame(scenario);try{blue(frame.getPixel(frame.getWidth()/2,frame.getHeight()/2));}finally{frame.recycle();}
+            scenario.onActivity(a->{a.play.performClick();a.timeline.listener.select(0,500);});for(int n=0;n<60;n++){boolean[] readyAgain={false};scenario.onActivity(a->readyAgain[0]=a.firstFrameRendered&&a.player!=null&&a.player.getPlaybackState()==androidx.media3.common.Player.STATE_READY);if(readyAgain[0])break;Thread.sleep(100);}Thread.sleep(400);frame=previewFrame(scenario);try{red(frame.getPixel(frame.getWidth()/2,frame.getHeight()/2));}finally{frame.recycle();}
+        }
+    }
     @Test public void mergedOrderDurationAndMainAudioArePreserved()throws Exception {
         File file=render(project);try(MediaMetadataRetriever r=new MediaMetadataRetriever()){
             r.setDataSource(file.getPath());assertEquals(6000,Long.parseLong(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)),250);
             assertEquals("yes",r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO));red(colour(r,1000000,.5f,.5f));blue(colour(r,4500000,.5f,.5f));
         }
+    }
+    int amberPixels(Bitmap bitmap){int count=0;for(int y=0;y<bitmap.getHeight()/4;y++)for(int x=0;x<bitmap.getWidth()/3;x++){int v=bitmap.getPixel(x,y);if(Color.alpha(v)>100&&Color.red(v)>180&&Color.green(v)>60&&Color.green(v)<185&&Color.blue(v)<110)count++;}return count;}
+    @Test public void approvedCanvaBrandAppearsInPreviewAndEncodedExport()throws Exception {
+        Map<String,Object> options=new HashMap<>(recipe.snapshot);options.put("overlay_alpha",0);DashSettings branded=new DashSettings(c,options);
+        TelemetryOverlay overlay=new TelemetryOverlay(c,new RideTelemetry(),branded,0,true,new OverlayRoads());overlay.configure(new androidx.media3.common.util.Size(1280,720));assertTrue("Preview must use white/amber Canva artwork",amberPixels(overlay.getBitmap(0))>30);overlay.release();
+        File output=render(project,branded);try(MediaMetadataRetriever r=new MediaMetadataRetriever()){r.setDataSource(output.getPath());Bitmap frame=r.getFrameAtTime(1000000,MediaMetadataRetriever.OPTION_CLOSEST);assertNotNull(frame);try{assertTrue("Encoded watermark must use current Canva artwork",amberPixels(frame)>30);}finally{frame.recycle();}}
     }
     @Test public void pipHidesLeadingGapAndUsesFrontAcrossDifferentRollovers()throws Exception {
         project.pip=true;SocialComposition.Built built=SocialComposition.build(c,project,recipe,true,()->false);assertEquals(1000,built.missingFrontMs);

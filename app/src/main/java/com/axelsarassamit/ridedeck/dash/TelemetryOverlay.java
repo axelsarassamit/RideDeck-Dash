@@ -1,20 +1,20 @@
 package com.axelsarassamit.ridedeck.dash;
-import android.content.Context;import android.graphics.*;import android.graphics.drawable.Drawable;import androidx.media3.effect.BitmapOverlay;import androidx.media3.common.util.Size;import java.util.*;import java.text.*;
+import android.content.Context;import android.graphics.*;import androidx.media3.effect.BitmapOverlay;import androidx.media3.common.util.Size;import java.util.*;import java.text.*;
 @androidx.annotation.OptIn(markerClass=androidx.media3.common.util.UnstableApi.class)
 final class TelemetryOverlay extends BitmapOverlay {
- final long offsetUs;final boolean social;final RideTelemetry data;final DashSettings settings;final OverlayRoads roads;final Drawable logo;int width=1280,height=720;Bitmap cached;long bucket=-1;
+ final long offsetUs;final boolean social;final RideTelemetry data;final DashSettings settings;final OverlayRoads roads;final Bitmap logo;int width=1280,height=720;Bitmap cached;long bucket=-1;
  final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);Canvas c;float u;
- TelemetryOverlay(Context context,RideTelemetry data,DashSettings settings,long offsetUs,boolean social,OverlayRoads roads){this.data=data;this.settings=settings;this.offsetUs=offsetUs;this.social=social;this.roads=roads;logo=context.getDrawable(R.drawable.ic_ridedeck_overlay);}
+ TelemetryOverlay(Context context,RideTelemetry data,DashSettings settings,long offsetUs,boolean social,OverlayRoads roads){this.data=data;this.settings=settings;this.offsetUs=offsetUs;this.social=social;this.roads=roads;logo=VelocityArtwork.get(context);}
  @Override public void configure(Size size){super.configure(size);width=size.getWidth();height=size.getHeight();}
  boolean on(String key){return settings.number("overlay_"+key,key.equals("speed")||key.equals("time")||key.equals("route")?1:0)==1;}
  @Override public void release()throws androidx.media3.common.VideoFrameProcessingException{super.release();if(cached!=null){cached.recycle();cached=null;}}
  void text(String value,float x,float y,float size,int color,boolean bold){p.setColor(color);p.setStyle(Paint.Style.FILL);p.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));p.setTextSize(size);c.drawText(value,x,y,p);}
- void panel(float x,float y,float w,float h){p.setStyle(Paint.Style.FILL);p.setColor(Color.argb(settings.number("overlay_alpha",210),17,24,34));c.drawRoundRect(x,y,x+w,y+h,16*u,16*u,p);p.setColor(Color.argb(75,144,200,255));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(u);c.drawRoundRect(x,y,x+w,y+h,16*u,16*u,p);p.setStyle(Paint.Style.FILL);}
+ void panel(float x,float y,float w,float h){p.setStyle(Paint.Style.FILL);p.setColor(Color.argb(settings.number("overlay_alpha",210),20,30,40));c.drawRoundRect(x,y,x+w,y+h,12*u,12*u,p);p.setColor(Color.argb(120,43,58,80));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(u);c.drawRoundRect(x,y,x+w,y+h,12*u,12*u,p);p.setStyle(Paint.Style.FILL);}
  @Override public Bitmap getBitmap(long timeUs){timeUs+=offsetUs;long tick=timeUs/(on("route")?100000:1000000);if(tick==bucket&&cached!=null)return cached;bucket=tick;
   Bitmap bitmap=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);c=new Canvas(bitmap);u=Math.min(width/1280f,height/720f)*(settings.number("overlay_size",28)/28f);boolean portrait=height>width;
-  float margin=24*u,left=margin,right=width-(social?width*.16f:margin),usable=right-left,top=social?height*.09f:margin,bottom=height-(social?height*.21f:margin);int white=Color.rgb(244,246,250),blue=settings.number("studio_color",Color.rgb(144,200,255)),muted=Color.rgb(173,191,207);
+  float margin=24*u,left=margin,right=width-(social?width*.16f:margin),usable=right-left,top=social?height*.09f:margin,bottom=height-(social?height*.21f:margin);int white=Color.rgb(245,248,252),blue=settings.number("studio_color",Color.rgb(98,132,255)),muted=Color.rgb(163,178,201);
   // The RideDeck mark is mandatory even in a data-free preset.
-  float brandW=230*u;place("brand",left,top,brandW,66*u);panel(left,top,brandW,66*u);logo.setBounds((int)(left+8*u),(int)(top+6*u),(int)(left+62*u),(int)(top+60*u));logo.draw(c);text("RideDeck",left+76*u,top+31*u,24*u,white,true);text("DASH",left+77*u,top+51*u,12*u,blue,true);c.restore();
+  if(settings.number("studio_skip_brand",0)==0){float brandW=230*u;place("brand",left,top,brandW,66*u);panel(left,top,brandW,66*u);VelocityArtwork.compact(c,logo,left,top,u);c.restore();}
   RideTelemetry.Sample s=data.at(timeUs);boolean mph=settings.number("overlay_mph",0)==1;
   if(on("time")){String time=data.clipUtc<0?"TIME UNAVAILABLE":new SimpleDateFormat("HH:mm:ss",Locale.ROOT).format(new Date(data.clipUtc+timeUs/1000));float w=190*u;float x=portrait?left:right-w;float y=portrait?top+76*u:top;place("clock",x,y,w,66*u);panel(x,y,w,66*u);text(time,x+16*u,y+29*u,24*u,white,true);text(data.clipUtc<0?"NO TIMESTAMP":new SimpleDateFormat("dd MMM yyyy",Locale.US).format(new Date(data.clipUtc+timeUs/1000)),x+16*u,y+50*u,13*u,muted,false);c.restore();}
   List<String[]> stats=new ArrayList<>();

@@ -8,7 +8,7 @@ android {
         minSdk = 26
         targetSdk = 35
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        val releaseVersion = (System.getenv("DASH_VERSION_NAME") ?: "0.10.0").removePrefix("v")
+        val releaseVersion = (System.getenv("DASH_VERSION_NAME") ?: "0.10.1").removePrefix("v")
         require(Regex("[0-9]{1,3}\\.[0-9]{1,2}\\.[0-9]{1,2}").matches(releaseVersion)) { "Use numeric major.minor.patch; minor and patch must be under 100" }
         val parts = releaseVersion.split(".").map(String::toInt)
         versionCode = parts[0] * 10000 + parts[1] * 100 + parts[2]
@@ -38,10 +38,10 @@ android {
 dependencies {
     implementation("org.opencv:opencv:4.12.0")
     implementation("androidx.core:core:1.16.0")
-    implementation("androidx.media3:media3-transformer:1.9.3")
-    implementation("androidx.media3:media3-effect:1.9.3")
-    implementation("androidx.media3:media3-exoplayer:1.9.3")
-    implementation("androidx.media3:media3-ui:1.9.3")
+    implementation("androidx.media3:media3-transformer:1.11.1")
+    implementation("androidx.media3:media3-effect:1.11.1")
+    implementation("androidx.media3:media3-exoplayer:1.11.1")
+    implementation("androidx.media3:media3-ui:1.11.1")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test:core:1.6.1")

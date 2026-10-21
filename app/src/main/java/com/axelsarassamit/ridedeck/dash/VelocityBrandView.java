@@ -10,7 +10,7 @@ public final class VelocityBrandView extends View {
     private final Paint ink = new Paint(3);
     public VelocityBrandView(Context context) {
         super(context);
-        bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.velocity_logo);
+        bitmap = VelocityArtwork.get(context);
         setContentDescription("RideDeck logo");
     }
     @Override protected void onDraw(Canvas canvas) {

@@ -2,9 +2,9 @@
 
 A separate Android dashcam for RideDeck and RideDeck for Yamaha. Package: com.axelsarassamit.ridedeck.dash.
 
-## Social timeline editor: 0.10.0
+## Social timeline editor: 0.10.1
 
-One editor replaces the old single-clip and overlay-export screens. It provides a large preview, thumbnail timeline, draggable trims, split/duplicate/reorder/remove, crop and social formats, movable front-camera PiP, configurable ride overlays, timed title text, music/volume/fades, colour adjustments and integrated experimental stabilization. Undo/redo and app-private saved drafts preserve non-destructive edits. Export selected recordings separately or merge up to 30 sections and 30 minutes. Preview and export share the recipe. Recording thumbnails, persistent sorting and camera/protection filters make the library easier to browse.
+One editor replaces the old single-clip and overlay-export screens. Current Canva artwork appears in overlays as well as the app. Playback and timeline seeking use the updated media engine, with a brief fresh-compositor refresh for PiP jumps and cuts. It provides a large preview, thumbnail timeline, draggable trims, split/duplicate/reorder/remove, crop and social formats, movable front-camera PiP, configurable ride overlays, timed title text, music/volume/fades, colour adjustments and integrated experimental stabilization. Undo/redo and app-private saved drafts preserve non-destructive edits. Export selected recordings separately or merge up to 30 sections and 30 minutes. Preview and export share the recipe. Recording thumbnails, persistent sorting and camera/protection filters make the library easier to browse.
 
 Originals stay untouched. Drafts reference source media and are not backups. Heavy editing/export retains charger-or-50% reserve and capture priority. The existing recording policy is unchanged. A date/time-filtered local backup still copies complete originals and ride CSVs with a manifest.
 
