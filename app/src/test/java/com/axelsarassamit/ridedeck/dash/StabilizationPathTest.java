@@ -2,6 +2,14 @@ package com.axelsarassamit.ridedeck.dash;
 import org.junit.Test;
 import static org.junit.Assert.*;
 public class StabilizationPathTest {
+    @Test public void lostTrackingFadesInsteadOfSnappingToIdentity(){
+        long[] times=new long[90];float[][] path=new float[90][3];int[] segments=new int[90];
+        for(int i=0;i<90;i++){times[i]=i*33333L;segments[i]=i<45?0:1;path[i][0]=(i<45?i:i-45)*2;}
+        float[][] result=StabilizationPath.smooth(times,path,segments,3,360,640);
+        assertEquals(0,result[44][0],0.0001);assertEquals(0,result[45][0],0.0001);
+        assertTrue("Still smooth known motion away from the break",Math.abs(result[0][0])>10);
+        for(int i=40;i<49;i++)assertTrue("No one-frame correction snap",Math.abs(result[i+1][0]-result[i][0])<6);
+    }
     @Test public void accumulatedTranslationRotatesWithCamera() {
         float[] path=StabilizationPath.compose(new float[]{10,0,0},new float[]{0,0,(float)Math.PI/2});
         assertEquals(0,path[0],0.0001);assertEquals(10,path[1],0.0001);

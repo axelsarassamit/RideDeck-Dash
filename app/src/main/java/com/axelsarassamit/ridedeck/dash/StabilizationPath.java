@@ -27,8 +27,23 @@ final class StabilizationPath {
             result[i][1] = clamp((float)(sum[1]/weights-s*motion[i][0]-c*motion[i][1]), yLimit);
             result[i][2] = angle;
         }
+        // A failed match starts a fresh coordinate system. Fade on both sides of that
+        // boundary instead of jumping from a nonzero correction to identity in one frame.
+        // Do not fade the ends of a normal trim: its motion is still known there.
+        int first=0;
+        while(first<times.length){
+            int last=first;while(last+1<times.length&&segments[last+1]==segments[first])last++;
+            for(int i=first;i<=last;i++){
+                float fade=1;
+                if(first>0)fade=Math.min(fade,fade((times[i]-times[first])/200000f));
+                if(last+1<times.length)fade=Math.min(fade,fade((times[last]-times[i])/200000f));
+                for(int k=0;k<3;k++)result[i][k]*=fade;
+            }
+            first=last+1;
+        }
         return result;
     }
+    private static float fade(float value){float t=Math.max(0,Math.min(1,value));return t*t*(3-2*t);}
     static float zoom(int strength) { return strength == 1 ? 1.12f : strength == 2 ? 1.22f : 1.35f; }
     static float[] compose(float[] path,float[] delta) {
         double c=Math.cos(delta[2]),s=Math.sin(delta[2]);

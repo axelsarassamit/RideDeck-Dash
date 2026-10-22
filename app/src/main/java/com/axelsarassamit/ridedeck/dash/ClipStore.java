@@ -35,8 +35,10 @@ public final class ClipStore {
     }
     public synchronized void reserve(long expectedBytes) throws IOException {
         List<File> files = clips();
-        long used = 0;
-        for (File f : files) used += finalized(f) ? f.length() : Math.max(f.length(),settings.clipBytes());
+        // Motion sidecars are real storage too. Retained ride data must count toward
+        // the user's allowance even after its video has been recycled or deleted.
+        long used = usedBytes();
+        for (File f : files) if(!finalized(f))used+=Math.max(0,settings.clipBytes()-f.length());
         files.sort(Comparator.comparingLong(File::lastModified));
         for (File f : files) {
             if (used + expectedBytes <= settings.quotaBytes() && root.getUsableSpace() >= settings.number("reserve",512)*1024L*1024 + expectedBytes) return;
@@ -47,4 +49,6 @@ public final class ClipStore {
         if (used + expectedBytes > settings.quotaBytes() || root.getUsableSpace() < settings.number("reserve",512)*1024L*1024 + expectedBytes)
             throw new IOException("Storage full. Export protected clips to free space.");
     }
+    long usedBytes(){return bytes(root);}
+    private static long bytes(File directory){long total=0;File[] entries=directory.listFiles();if(entries!=null)for(File entry:entries)total+=entry.isDirectory()?bytes(entry):entry.length();return total;}
 }

@@ -99,7 +99,8 @@ final class SocialComposition {
         Map<String,Object> brand=new HashMap<>(recipe.snapshot);for(String key:SocialProfile.overlayKeys())brand.put("overlay_"+key,0);
         brand.put("studio_skip_brand",0);
         List<Effect> finishing=new ArrayList<>();
-        if(exporting)finishing.add(FrameDropEffect.createDefaultFrameDropEffect(30));
+        // Offline export must preserve the supplied video timestamps. Smoothing changes
+        // geometry, not cadence; a 30 fps dropper can discard real source pictures.
         finishing.add(new OverlayEffect(Collections.singletonList(new StudioText(recipe))));
         finishing.add(new OverlayEffect(Collections.singletonList(new TelemetryOverlay(c,new RideTelemetry(),new DashSettings(c,brand),0,true,new OverlayRoads()))));
         builder.setEffects(new Effects(Collections.emptyList(),finishing));

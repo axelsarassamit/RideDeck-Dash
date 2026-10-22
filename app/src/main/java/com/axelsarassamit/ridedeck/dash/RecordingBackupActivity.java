@@ -53,7 +53,7 @@ public final class RecordingBackupActivity extends Activity {
             if(chosen.isEmpty())throw new IOException("No finalized clips overlap that window");
             if(getFilesDir().getUsableSpace()<bytes+256L*1024*1024)throw new IOException("Not enough phone space for complete copies");
             int done=0;for(File clip:chosen){copy(clip,folder,"Dash-"+clip.getParentFile().getName()+"-"+clip.getName(),"video/mp4");final int count=++done,total=chosen.size();runOnUiThread(()->status.setText("Copied "+count+" / "+total+" originals"));}
-            for(File ride:rides){File[] logs=ride.listFiles((dir,name)->name.endsWith(".csv"));if(logs!=null)for(File file:logs)copy(file,folder,"Dash-"+ride.getName()+"-"+file.getName(),"text/csv");}
+            for(File ride:rides){File[] logs=ride.listFiles((dir,name)->name.endsWith(".csv")||name.equals("motion.json"));if(logs!=null)for(File file:logs)copy(file,folder,"Dash-"+ride.getName()+"-"+file.getName(),file.getName().endsWith(".json")?"application/json":"text/csv");}
             JSONObject report=new JSONObject().put("start_ms",start).put("end_ms",end).put("timezone",TimeZone.getDefault().getID()).put("clips",manifest);
             write(folder,"manifest.json","application/json",new ByteArrayInputStream(report.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
             runOnUiThread(()->{if(!isDestroyed())status.setText("Backup saved: "+folder+"\n"+chosen.size()+" complete originals and ride logs. Originals kept.");});

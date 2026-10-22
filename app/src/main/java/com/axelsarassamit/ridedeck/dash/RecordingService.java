@@ -59,6 +59,7 @@ public final class RecordingService extends Service {
     private int rotation;
     private volatile int startedTracks;
     private BufferedWriter events;
+    private MotionTelemetry motion;
     private final BroadcastReceiver battery = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) { if (worker != null) worker.post(() -> enforceGate(i)); }
     };
@@ -141,6 +142,7 @@ public final class RecordingService extends Service {
             route.write("utc_ms,elapsed_ns,latitude,longitude,accuracy_m,speed_m_s,altitude_m,bearing_deg,battery_percent,charging\n"); route.flush();
             events = new BufferedWriter(new FileWriter(new File(rideDirectory, "capture.csv")));
             events.write("utc_ms,elapsed_ns,sensor_ns,camera,event,eis,ois,file\n"); events.flush();
+            if(settings.number("motion_data",1)==1)try{motion=new MotionTelemetry(this,rideDirectory);}catch(Exception error){android.util.Log.w("DashMotion","Motion data unavailable; video continues",error);}
             position = null; startedTracks = 0; protectUntil = 0;
             CameraManager manager = getSystemService(CameraManager.class);
             String rear = null, front = null;
@@ -212,6 +214,7 @@ public final class RecordingService extends Service {
         if(events!=null)try{events.write(System.currentTimeMillis()+","+SystemClock.elapsedRealtimeNanos()+",,session,stop_"+reason.replace(',',' ').replace('\n',' ')+",,,\n");events.flush();}catch(IOException ignored){}
         worker.removeCallbacksAndMessages(null);
         for (Track track : tracks) track.close(); tracks.clear();
+        if(motion!=null){motion.close();motion=null;}
         if (locations != null) try { locations.removeUpdates(gps); } catch (SecurityException ignored) {}
         if (route != null) try { route.close(); } catch (IOException ignored) {}
         route = null; position = null;
@@ -302,6 +305,7 @@ public final class RecordingService extends Service {
             int sensor = c.get(CameraCharacteristics.SENSOR_ORIENTATION);
             int degrees = rotation * 90;
             recorder.setOrientationHint("front".equals(label) ? (sensor + degrees) % 360 : (sensor - degrees + 360) % 360);
+            if(motion!=null)try{motion.camera(label,id,c,size.getWidth(),size.getHeight(),rotation);}catch(Exception error){android.util.Log.w("DashMotion","Camera calibration metadata unavailable",error);}
             current = file(); recorder.setOutputFile(current.getPath());
             recorder.setMaxFileSize(settings.clipBytes());
             recorder.setOnInfoListener((r, what, extra) -> worker.post(() -> {
@@ -402,6 +406,7 @@ public final class RecordingService extends Service {
         private final CameraCaptureSession.CaptureCallback captureCallback = new CameraCaptureSession.CaptureCallback() {
                                 @Override public void onCaptureCompleted(CameraCaptureSession s, CaptureRequest r, TotalCaptureResult result) {
                                     if (events == null || stopping) return;
+                                    if(motion!=null)motion.frame(label,current,result);
                                     frames++;
                                     Long sensorTime=result.get(CaptureResult.SENSOR_TIMESTAMP);
                                     if(sensorTime!=null){
