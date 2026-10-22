@@ -34,9 +34,10 @@ final class SocialComposition {
             OverlayRoads roads=new OverlayRoads();
             // Preview/export use identical local overlays; road-network downloads remain in single-clip export.
             VideoStabilizer correction=null;int strength=recipe.number("studio_stabilize",0);
-            if(strength>0){String key=file.getPath()+":"+file.lastModified()+":"+item.fromMs+":"+item.toMs+":"+strength;
+            boolean hybrid=recipe.number("studio_hybrid",0)==1;
+            if(strength>0){String key=file.getPath()+":"+file.lastModified()+":"+item.fromMs+":"+item.toMs+":"+strength+":"+hybrid+":"+new File(file.getParentFile(),"motion.json").lastModified();
                 synchronized(motion){correction=motion.get(key);}
-                if(correction==null){correction=VideoStabilizer.analyze(file,item.fromMs*1000,item.toMs*1000,strength,cancelled,n->{});if(cancelled.getAsBoolean())throw new IOException("Analysis cancelled");synchronized(motion){motion.put(key,correction);}}
+                if(correction==null){correction=VideoStabilizer.analyze(file,item.fromMs*1000,item.toMs*1000,strength,hybrid,cancelled,n->{});if(cancelled.getAsBoolean())throw new IOException("Analysis cancelled");synchronized(motion){motion.put(key,correction);}}
             }
             List<Effect> effects=SocialEffects.create(c,file,recipe,item.fromMs*1000,correction,roads,false);
             List<androidx.media3.common.audio.AudioProcessor> audio=new ArrayList<>();

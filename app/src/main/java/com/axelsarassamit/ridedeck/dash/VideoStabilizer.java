@@ -16,7 +16,7 @@ import androidx.media3.effect.MatrixTransformation;
 
 /** Offline only: sequential low-resolution luma tracking, followed by GPU export of the original. */
 @androidx.annotation.OptIn(markerClass=androidx.media3.common.util.UnstableApi.class)
-final class VideoStabilizer implements MatrixTransformation {
+class VideoStabilizer implements MatrixTransformation {
     final long[] times; final float[][] correction; final float zoom; final int analysisWidth,analysisHeight; boolean loggedTime;
     VideoStabilizer(long[] timestamps,float[][] values,int strength,int width,int height) {
         times=timestamps;correction=values;zoom=StabilizationPath.zoom(strength);analysisWidth=width;analysisHeight=height;
@@ -38,9 +38,12 @@ final class VideoStabilizer implements MatrixTransformation {
             -sin*analysisWidth/analysisHeight,cos,-2*dy/analysisHeight*zoom,0,0,1});return matrix;
     }
     static VideoStabilizer analyze(File file,long startUs,long endUs,int strength,BooleanSupplier cancelled,IntConsumer progress) throws Exception {
+        return analyze(file,startUs,endUs,strength,false,cancelled,progress);
+    }
+    static VideoStabilizer analyze(File file,long startUs,long endUs,int strength,boolean hybrid,BooleanSupplier cancelled,IntConsumer progress) throws Exception {
         if(!OpenCVLoader.initLocal())throw new IOException("Stabilization engine unavailable");
         MediaExtractor extractor=new MediaExtractor();MediaCodec decoder=null;Mat previous=null;
-        List<Long> timestamps=new ArrayList<>();List<float[]> paths=new ArrayList<>();List<Integer> groups=new ArrayList<>();
+        List<Long> timestamps=new ArrayList<>();List<float[]> paths=new ArrayList<>(),deltas=new ArrayList<>();List<Integer> groups=new ArrayList<>();
         float x=0,y=0,angle=0;int segment=0,accepted=0,attempted=0,aw=0,ah=0;
         try {
             extractor.setDataSource(file.getPath());MediaFormat format=null;
@@ -65,7 +68,7 @@ final class VideoStabilizer implements MatrixTransformation {
                         Mat gray;try(Image image=decoder.getOutputImage(index)){if(image==null)throw new IOException("Phone decoder cannot provide stabilization frames");gray=luma(image,rotation);}
                         aw=gray.cols();ah=gray.rows();float[] delta=previous==null?null:motion(previous,gray);
                         if(previous!=null){attempted++;if(delta!=null){accepted++;float[] composed=StabilizationPath.compose(new float[]{x,y,angle},delta);x=composed[0];y=composed[1];angle=composed[2];}else{segment++;x=y=angle=0;}previous.release();}
-                        previous=gray;timestamps.add(info.presentationTimeUs-startUs);paths.add(new float[]{x,y,angle});groups.add(segment);
+                        previous=gray;timestamps.add(info.presentationTimeUs-startUs);paths.add(new float[]{x,y,angle});deltas.add(delta);groups.add(segment);
                         if(timestamps.size()>60000)throw new IOException("Too many frames; select a shorter social range");
                         if(timestamps.size()%30==0)progress.accept((int)(100*(info.presentationTimeUs-startUs)/Math.max(1,endUs-startUs)));
                     }}finally{decoder.releaseOutputBuffer(index,false);}
@@ -73,6 +76,7 @@ final class VideoStabilizer implements MatrixTransformation {
             }
             if(timestamps.size()<10||accepted<attempted*0.25)throw new IOException("Too few reliable road features for stabilization; export without smoothing");
             long[] times=new long[timestamps.size()];int[] segments=new int[times.length];for(int i=0;i<times.length;i++){times[i]=timestamps.get(i);segments[i]=groups.get(i);}
+            if(hybrid){progress.accept(100);return HybridStabilizer.create(file,startUs,endUs,times,deltas,strength,aw,ah,rotation,cancelled);}
             float[][] correction=StabilizationPath.smooth(times,paths.toArray(new float[0][]),segments,strength,aw,ah);
             // Keep a local motion audit with the ride for evidence-based export diagnostics.
             // It contains no decoded pictures, audio or location; backups include this CSV.

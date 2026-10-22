@@ -1,0 +1,1 @@
+Synthetic generated geometry, texture, gyro and row-readout data. No user footage. Recreate using tools/generate_hybrid_fixture.py. 640x360,30fps,10s,4ms exposure,9.216ms readout,42ms gyro delay. Trigonometric gyro motion with three independent axes; known gyro-to-image map. Includes a440Hz tone. This verifies implementation, not motorcycle performance.

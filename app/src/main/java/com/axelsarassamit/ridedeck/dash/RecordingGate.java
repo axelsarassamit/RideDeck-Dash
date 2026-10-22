@@ -12,7 +12,7 @@ public final class RecordingGate {
         if (!visible && !authorizedRideActive) return Result.COMPANION_REQUIRED;
         return Result.ALLOWED;
     }
-    /** Higher battery reserve for editing, export, backup and sound checks. */
+    /** Higher battery reserve for backup and sound checks. Video editing/export do not use this gate. */
     public static Result evaluate(boolean plugged, int batteryPercent, boolean visible, boolean authorizedRideActive) {
         if (!plugged) {
             if (batteryPercent < 0 || batteryPercent > 100) return Result.BATTERY_UNKNOWN;

@@ -10,9 +10,11 @@ New recordings save optional motion evidence alongside their originals:
 - `frames.csv`: one row for each delivered Camera2 capture result, including exposure-start timestamp, callback arrival, frame number, exposure duration, frame duration, rolling-shutter skew, active native stabilization, lens values and crop where available.
 - `motion.json`: sensor provenance, camera timestamp sources, sensor orientation, encoded dimensions, available lens calibration, data-loss counters and session completion status. Written atomically during capture and at shutdown.
 
-No image decoding, optical flow or custom video transformation runs during recording. Camera callbacks offer scalar records to a bounded queue; a separate writer performs file I/O. Queue overflow is counted. Logging failure does not stop original video. Motion sidecars count toward recording storage allowance. A 256 MB per-ride motion limit prevents unbounded logging; reaching it ends motion logging and records a failed/incomplete motion session while video continues. Motion data can be disabled in Recording settings. Ride data export and backup include the sidecars.
+No image decoding, optical flow or custom video transformation runs during recording. Camera callbacks offer scalar records to a bounded queue; a separate writer performs file I/O. Queue overflow is counted. Logging failure does not stop original video. Motion sidecars count toward recording storage allowance. A configurable per-ride motion limit (512 MB by default) prevents unbounded logging; reaching it ends motion logging and records a failed/incomplete motion session while video continues. Motion data can be disabled in Recording settings. Ride data export and backup include the sidecars.
 
-**This is evidence capture, not a delivered gyro stabilizer.** The current editor still uses image tracking. Older recordings do not gain missing gyro data retroactively.
+The default editor uses image tracking. Version 0.12 adds an explicit experimental Hybrid lab mode for suitable native-off rear samples. It estimates a per-clip empirical small-angle gyro/image map and timing offset, then combines gyro and image motion and applies a row-dependent GPU inverse warp. It is not a complete physical camera/lens calibration. Older recordings do not gain missing gyro data retroactively.
+
+Motion schema 2 additionally records `accel.csv`, sensor provenance, sample profile, ISO, AF/AE state, zoom, available OIS samples and per-frame intrinsics. OIS data uses camera timestamps and pre-correction active-array pixel shifts. Unsupported optional measurements remain empty. The configurable per-ride motion-data cap defaults to 512 MB (128 MB to 1 GB options). All telemetry sidecars and hybrid reports are included in backup and explicit ride-data export. Editing and social export no longer use a charger/battery gate.
 
 ## Synchronization is a measured requirement
 
@@ -34,6 +36,14 @@ Before combining them, either obtain usable native motion/intrinsic samples and 
 4. Build hybrid estimation: gyro for camera rotation, optical flow for residual motion and synchronization checks, confidence-aware recovery and full-clip trajectory optimization.
 5. Add row-dependent GPU warping for rolling shutter, then gradual crop planning. Preserve cornering/lean unless the user selects horizon levelling.
 6. Promote only after matched visual comparisons, frame/PTS/audio checks, crop measurements and sustained capture checks pass. Keep originals unchanged.
+
+## Experimental implementation and remaining gates
+
+Hybrid lab accepts only completed motion logs with zero queue loss, a REALTIME camera clock, native EIS/OIS off, stable geometry/focus and valid exposure/readout. It fits a 3x3 small-angle gyro-to-image map per selection, searches clock offsets over plus/minus 250 ms in 2 ms steps, uses held-out pairs and rejects weak or ambiguous matches. Three independently excited axes are necessary. This is an empirical approximation, not an identified physical focal-length/distortion model.
+
+Gyro predictions bridge failed optical matches; consistent image residuals contribute 15 percent. The existing bounded trajectory smoother preserves slow motion and does not force the horizon level. Five readout-time knots drive a two-iteration GPU inverse warp, with sensor scan direction transformed for video rotation. A conservative constant crop budget prevents zoom pumping; excessive crop is rejected. Preview and export share this effect and keep source timestamps.
+
+The sample workflow offers separate protected native references and native-off samples without persisting session overrides into normal preferences. Synthetic fixture generation is reproducible in `tools/generate_hybrid_fixture.py`; fixtures contain no user footage. Tests cover timing/map recovery, rejection of stationary/gapped/cancelled evidence, portrait/landscape GPU export, audio and frame-count preservation. Real capture verifies mode overrides and motion collection. Field quality, rollover synchronization on real rides, full lens calibration and native-transform compensation remain unverified. Native-stabilized footage continues to use Image smoothing.
 
 ## Bounded improvements to the current editor
 

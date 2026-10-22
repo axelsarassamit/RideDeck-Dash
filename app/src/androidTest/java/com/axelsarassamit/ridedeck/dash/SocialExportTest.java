@@ -20,6 +20,12 @@ import java.util.concurrent.*;
 /** Real decoder/GPU/encoder checks using synthetic colours, sound and deliberately offset cameras. */
 @androidx.annotation.OptIn(markerClass={androidx.media3.common.util.UnstableApi.class,androidx.media3.common.util.ExperimentalApi.class})
 public class SocialExportTest {
+    @Test public void editorAndBatchExportWorkOnBatteryBelowFifty()throws Exception {
+        Assume.assumeTrue("Explicit simulated unplugged battery check","1".equals(InstrumentationRegistry.getArguments().getString("batteryEditor")));
+        Intent battery=c.registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));assertNotNull(battery);assertEquals(0,battery.getIntExtra(BatteryManager.EXTRA_PLUGGED,-1));
+        assertTrue(RecordingGate.batteryPercent(battery.getIntExtra(BatteryManager.EXTRA_LEVEL,-1),battery.getIntExtra(BatteryManager.EXTRA_SCALE,-1))<50);
+        verifyTransport();realBatchSavesTwoIndependentTrimmedCopies();
+    }
     Context c;File ride;SocialProject project;DashSettings recipe;final List<File> outputs=new ArrayList<>();final List<Uri> gallery=new ArrayList<>();
     @Before public void setup()throws Exception {
         c=InstrumentationRegistry.getInstrumentation().getTargetContext();assertFalse("Stop the ride before tests",RecordingService.running);

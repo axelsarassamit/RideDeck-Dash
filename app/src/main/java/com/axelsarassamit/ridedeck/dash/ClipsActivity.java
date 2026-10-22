@@ -128,8 +128,9 @@ public final class ClipsActivity extends Activity {
         if(Build.VERSION.SDK_INT<29) { Toast.makeText(this,"Ride data export requires Android 10 or newer",Toast.LENGTH_LONG).show(); return; }
         new Thread(() -> {
             try {
-                for(String name:new String[]{"route.csv","capture.csv","gyro.csv","frames.csv","motion.json"}) {
-                    File file=new File(ride,name);if(!file.isFile())continue;
+                File[] evidence=ride.listFiles((dir,name)->name.endsWith(".csv")||name.equals("motion.json")||(name.startsWith("hybrid-")&&name.endsWith("-report.json")));if(evidence==null)throw new java.io.IOException("Ride data unavailable");
+                for(File file:evidence) {
+                    String name=file.getName();if(!file.isFile())continue;
                     ContentValues values=new ContentValues();values.put(MediaStore.MediaColumns.DISPLAY_NAME,"Dash-"+ride.getName()+"-"+name);
                     values.put(MediaStore.MediaColumns.MIME_TYPE,name.endsWith(".json")?"application/json":"text/csv");values.put(MediaStore.MediaColumns.RELATIVE_PATH,"Download/RideDeckDash");values.put(MediaStore.MediaColumns.IS_PENDING,1);
                     Uri target=getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,values);

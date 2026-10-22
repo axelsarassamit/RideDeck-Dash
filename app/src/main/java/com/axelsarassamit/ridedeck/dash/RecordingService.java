@@ -46,6 +46,8 @@ public final class RecordingService extends Service {
     private ClipStore store;
     private DashSettings settings;
     public static volatile String audioStatus="Audio off";
+    static volatile String captureMode="dual";
+    private String captureProfile="normal";private int sampleSeconds;
     public static volatile long startedAt;
     private android.media.AudioManager audioManager;
     private HeadsetRoute headsetRoute;
@@ -98,6 +100,9 @@ public final class RecordingService extends Service {
         if (running) return START_NOT_STICKY;
         if (!DashApplication.isVisible() && !companionStart) { stopSelf(); return START_NOT_STICKY; }
         rotation = intent == null ? 0 : intent.getIntExtra("rotation", 0);
+        String profile=intent==null?null:intent.getStringExtra("captureProfile");captureProfile="hybrid_sample".equals(profile)||"native_sample".equals(profile)?profile:"normal";
+        sampleSeconds="normal".equals(captureProfile)?0:Math.max(0,Math.min(300,intent.getIntExtra("sampleSeconds",120)));
+        if(!"normal".equals(captureProfile)){Map<String,Object> options=new HashMap<>(settings.snapshot);options.put("motion_data",1);options.put("stabilization","hybrid_sample".equals(captureProfile)?0:1);options.put("rearFocus",1);settings=new DashSettings(this,options);store=new ClipStore(this,settings);}
         PreviewFrames.rotation = rotation;
         PreviewFrames.rear = null; PreviewFrames.front = null;
         PreviewFrames.rearAt = 0; PreviewFrames.frontAt = 0;
@@ -132,6 +137,7 @@ public final class RecordingService extends Service {
     }
     private void begin(String mode) {
         try {
+            if(!"normal".equals(captureProfile))mode="rear";captureMode=mode;
             Intent power = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
             if (!enforceGate(power)) return;
             store.reserve(2*settings.clipBytes());
@@ -142,8 +148,8 @@ public final class RecordingService extends Service {
             route.write("utc_ms,elapsed_ns,latitude,longitude,accuracy_m,speed_m_s,altitude_m,bearing_deg,battery_percent,charging\n"); route.flush();
             events = new BufferedWriter(new FileWriter(new File(rideDirectory, "capture.csv")));
             events.write("utc_ms,elapsed_ns,sensor_ns,camera,event,eis,ois,file\n"); events.flush();
-            if(settings.number("motion_data",1)==1)try{motion=new MotionTelemetry(this,rideDirectory);}catch(Exception error){android.util.Log.w("DashMotion","Motion data unavailable; video continues",error);}
-            position = null; startedTracks = 0; protectUntil = 0;
+            if(settings.number("motion_data",1)==1)try{motion=new MotionTelemetry(this,rideDirectory,captureProfile);}catch(Exception error){android.util.Log.w("DashMotion","Motion data unavailable; video continues",error);}
+            position = null; startedTracks = 0; protectUntil = "normal".equals(captureProfile)?0:Long.MAX_VALUE;
             CameraManager manager = getSystemService(CameraManager.class);
             String rear = null, front = null;
             for (String camera : manager.getCameraIdList()) {
@@ -195,7 +201,7 @@ public final class RecordingService extends Service {
     }
     private void protect() {
         if (!running || stopping) return;
-        protectUntil = SystemClock.elapsedRealtime() + settings.number("protect",60)*1000L;
+        protectUntil = Math.max(protectUntil,SystemClock.elapsedRealtime() + settings.number("protect",60)*1000L);
         try {
             for (Track track : tracks) {
                 if (track.current != null) ClipStore.mark(track.current, ".protected");
@@ -350,6 +356,7 @@ public final class RecordingService extends Service {
                 if (fps != null) request.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fps);
                 request.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, eis);
                 request.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, ois);
+                if(motion!=null&&Build.VERSION.SDK_INT>=28){int[] modes=characteristics.get(CameraCharacteristics.STATISTICS_INFO_AVAILABLE_OIS_DATA_MODES);if(modes!=null)for(int value:modes)if(value==1)request.set(CaptureRequest.STATISTICS_OIS_DATA_MODE,1);}
                 CameraCaptureSession.StateCallback callback = new CameraCaptureSession.StateCallback() {
                     @Override public void onConfigured(CameraCaptureSession s) {
                         if (!running || stopping) { s.close(); return; }
@@ -366,6 +373,7 @@ public final class RecordingService extends Service {
                             if (startedTracks == tracks.size()) {
                                 capturing = true;
                                 state = "Recording";
+                                if(sampleSeconds>0)worker.postDelayed(()->finish("Sample saved"),sampleSeconds*1000L);
                                 updateCameraStatus();
                                 getSystemService(NotificationManager.class).notify(1, notification("Recording " + tracks.size() + " camera(s)"));
                             }

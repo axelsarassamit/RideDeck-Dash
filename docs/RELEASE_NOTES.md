@@ -1,14 +1,26 @@
-# RideDeck Dash 0.11.0
+# RideDeck Dash 0.12.0
 
-New recordings can save gyroscope samples and per-frame camera timing as the foundation for calibrated hybrid stabilization. Recording settings include a Motion data switch, enabled by default. Motion logging uses separate sensor/storage workers and a bounded queue. Failures or the 256 MB per-ride motion limit stop motion logging while original video continues. The summary records the observed sensor rate, clock sources, lost rows and completion status. Sidecars count toward the recording storage allowance and are included in ride-data export and backup.
+Video editing, preview, stabilization analysis and social export now work on battery without a charger or a 50% reserve. Recording retains its existing charger grace and 30% minimum; backup and sound-check rules are unchanged.
 
-This release does not yet apply gyro correction. The existing editor remains image-based. Accurate gyro/video synchronization, lens calibration, native EIS/OIS compatibility and rolling-shutter correction still need controlled validation before the hybrid engine can be enabled. Existing recordings remain available for image-based editing but cannot gain missing historical gyro samples. See [the stabilization direction](STABILIZATION_DIRECTION.md).
+Setup > Recording > Calibration and sample recordings offers a protected 30-second parked calibration, native reference sessions and separate native-stabilization-off hybrid samples. Choose 30 seconds, two minutes, five minutes or until Stop. Session-specific stabilization and focus overrides do not replace normal settings. Both orientations remain supported.
+
+New recordings save accelerometer data, ISO, focus/auto-exposure state, zoom, per-frame intrinsics and available optical-stabilization samples alongside gyro and camera timing. Unsupported measurements stay absent. Motion data has a configurable per-ride limit, defaults to 512 MB, counts toward the storage allowance and travels with ride-data export/backup. Logging remains separate from image processing.
+
+The editor adds opt-in Hybrid lab: a per-clip small-angle gyro/image fit, bounded clock-offset search with held-out agreement and ambiguity checks, confidence-gated image residuals, motion smoothing and a five-knot row-dependent GPU inverse warp. Constant crop avoids zoom pumping and is capped at 1.65x. It supports rear native-off samples with complete shared-clock evidence, fixed geometry/focus and enough independent movement. Native-stabilized clips, missing motion, weak fits, ambiguous timing and excessive correction are rejected rather than silently processed.
+
+Hybrid lab is experimental. It is not a full physical lens-distortion calibration and has not been validated on a mounted outdoor ride. Synthetic landscape and portrait tests exercise the real decoder, tracker, shader and encoder with known gyro/readout motion, checking timing recovery, source frame count and audio. Real sample-capture tests check native-off operation, protected clips, timed stopping and preservation of normal preferences. Outdoor sample footage is the next validation step.
+
+## Earlier features retained
+
+New recordings can save gyroscope samples and per-frame camera timing as the foundation for calibrated hybrid stabilization. Recording settings include a Motion data switch, enabled by default. Motion logging uses separate sensor/storage workers and a bounded queue. Failures or the configured per-ride motion limit stop motion logging while original video continues. The summary records the observed sensor rate, clock sources, lost rows and completion status. Sidecars count toward the recording storage allowance and are included in ride-data export and backup.
+
+Older recordings use image-based correction. The new experimental hybrid option requires complete native-off sample evidence; physical lens calibration and mounted-road validation remain future work. Existing recordings remain available for image-based editing but cannot gain missing historical gyro samples. See [the stabilization direction](STABILIZATION_DIRECTION.md).
 
 Offline exports preserve source cadence instead of applying an unconditional 30 fps frame-drop effect. Tracking failures now fade correction on both sides of the break, reducing artificial one-frame correction jumps. These changes do not recreate missing source pictures, remove exposure blur or guarantee smooth motorcycle footage.
 
 The connected Xiaomi passed a 30-second dual-camera motion-data check and a matched 20-second real-road export that retained all 601 selected source pictures. The 13 real-device editor regression checks passed, including seeking, playback, stabilization, merged video, audio and front PiP. These short checks do not replace a sustained outdoor ride and calibration test.
 
-## Earlier features retained
+### Previous editor and recording features
 
 The launcher now uses the approved orange camera-and-R icon, making Dash visibly different from Standard's blue R and Yamaha's separate Yamaha-branded icon. In-app and exported-video branding remains unchanged.
 

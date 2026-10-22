@@ -14,34 +14,45 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /** Motion evidence for future calibrated stabilization. It never processes camera pictures. */
 final class MotionTelemetry implements SensorEventListener,AutoCloseable {
-    interface Row {void write(BufferedWriter gyro,BufferedWriter frames)throws IOException;}
+    interface Row {void write(BufferedWriter gyro,BufferedWriter frames,BufferedWriter accel)throws IOException;}
     private final ArrayBlockingQueue<Row> pending=new ArrayBlockingQueue<>(4096);
     private final Object queueLock=new Object();
     private final AtomicLong dropped=new AtomicLong();
     private final SensorManager sensors;
     private final Sensor gyro;
+    private final Sensor accelerometer;private final long maxBytes;
     private final File directory;
     private final HandlerThread callbacks=new HandlerThread("DashMotionSensors");
     private final Thread writer=new Thread(this::write,"DashMotionWriter");
     private final JSONObject metadata=new JSONObject();
     private volatile boolean accepting=true,failed;
-    private long samples,firstNs,lastNs;
+    private String failureReason="";
+    private long samples,firstNs,lastNs,accelSamples,oisSamples;
     private boolean registered;
     private long bytes;
 
     MotionTelemetry(Context context,File ride)throws Exception {
+        this(context,ride,"normal");
+    }
+    MotionTelemetry(Context context,File ride,String profile)throws Exception {
         directory=ride;sensors=context.getSystemService(SensorManager.class);
         gyro=sensors==null?null:sensors.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
-        metadata.put("schema",1).put("purpose","motion evidence; not yet used by the editor")
+        accelerometer=sensors==null?null:sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        maxBytes=Math.max(64,Math.min(1024,new DashSettings(context).number("motion_limit",512)))*1024L*1024;
+        metadata.put("schema",2).put("purpose","motion evidence and experimental hybrid calibration").put("capture_profile",profile)
+            .put("device_model",Build.MODEL).put("device_manufacturer",Build.MANUFACTURER).put("build_fingerprint",Build.FINGERPRINT)
             .put("video_sync","camera timestamps require matching to encoded clip PTS and calibration; callback arrival is not an exposure timestamp")
             .put("gyro_units","rad/s; Android device axes, unaffected by display rotation")
             .put("gyro_clock","elapsedRealtimeNanos").put("requested_period_us",5000)
+            .put("accelerometer_units","m/s^2 including gravity; Android device axes").put("ois_units","pixels in pre-correction active-array coordinates; per-sample camera timestamps")
             .put("created_elapsed_ns",SystemClock.elapsedRealtimeNanos()).put("created_utc_ms",System.currentTimeMillis())
             .put("camera_modes",new JSONArray());
         if(gyro!=null)metadata.put("sensor",new JSONObject().put("name",gyro.getName()).put("vendor",gyro.getVendor())
             .put("version",gyro.getVersion()).put("min_delay_us",gyro.getMinDelay()).put("resolution",gyro.getResolution()));
         callbacks.start();
         if(gyro!=null)try{registered=sensors.registerListener(this,gyro,5000,new Handler(callbacks.getLooper()));}catch(RuntimeException error){registered=false;}
+        boolean accelRegistered=false;if(accelerometer!=null)try{accelRegistered=sensors.registerListener(this,accelerometer,10000,new Handler(callbacks.getLooper()));}catch(RuntimeException ignored){}
+        metadata.put("accelerometer_registered",accelRegistered);if(accelerometer!=null)metadata.put("accelerometer_sensor",accelerometer.getName());
         metadata.put("gyro_registered",registered);
         writer.start();
     }
@@ -53,6 +64,7 @@ final class MotionTelemetry implements SensorEventListener,AutoCloseable {
         if(intrinsic!=null)entry.put("intrinsics",array(intrinsic));if(distortion!=null)entry.put("distortion",array(distortion));
         android.graphics.Rect active=c.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
         if(active!=null)entry.put("active_array",new JSONArray(new int[]{active.left,active.top,active.right,active.bottom}));
+        if(Build.VERSION.SDK_INT>=28){int[] modes=c.get(CameraCharacteristics.STATISTICS_INFO_AVAILABLE_OIS_DATA_MODES);if(modes!=null)entry.put("ois_data_modes",new JSONArray(modes));}
         metadata.getJSONArray("camera_modes").put(entry);
     }
     private static JSONArray array(float[] values)throws JSONException {JSONArray a=new JSONArray();for(float v:values)a.put(v);return a;}
@@ -60,7 +72,8 @@ final class MotionTelemetry implements SensorEventListener,AutoCloseable {
     @Override public void onSensorChanged(SensorEvent event){
         if(!accepting||failed||event.values.length<3)return;
         long time=event.timestamp,delivery=SystemClock.elapsedRealtimeNanos();float x=event.values[0],y=event.values[1],z=event.values[2];int quality=event.accuracy;
-        offer((g,f)->{g.write(time+","+Float.toString(x)+","+y+","+z+","+quality+","+delivery+"\n");samples++;if(firstNs==0)firstNs=time;lastNs=time;});
+        if(event.sensor.getType()==Sensor.TYPE_ACCELEROMETER){offer((g,f,a)->{a.write(time+","+Float.toString(x)+","+y+","+z+","+quality+","+delivery+"\n");accelSamples++;});return;}
+        offer((g,f,a)->{g.write(time+","+Float.toString(x)+","+y+","+z+","+quality+","+delivery+"\n");samples++;if(firstNs==0)firstNs=time;lastNs=time;});
     }
     void frame(String camera,File file,TotalCaptureResult result){
         if(!accepting||failed)return;
@@ -71,34 +84,43 @@ final class MotionTelemetry implements SensorEventListener,AutoCloseable {
         Float focus=result.get(CaptureResult.LENS_FOCUS_DISTANCE),focal=result.get(CaptureResult.LENS_FOCAL_LENGTH);
         android.graphics.Rect crop=result.get(CaptureResult.SCALER_CROP_REGION);String region=crop==null?"":crop.left+":"+crop.top+":"+crop.right+":"+crop.bottom;
         String physical=Build.VERSION.SDK_INT>=29?result.get(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID):null;
+        Integer iso=result.get(CaptureResult.SENSOR_SENSITIVITY),afMode=result.get(CaptureResult.CONTROL_AF_MODE),afState=result.get(CaptureResult.CONTROL_AF_STATE),aeState=result.get(CaptureResult.CONTROL_AE_STATE);
+        Float zoom=Build.VERSION.SDK_INT>=30?result.get(CaptureResult.CONTROL_ZOOM_RATIO):null;
+        float[] intrinsics=result.get(CaptureResult.LENS_INTRINSIC_CALIBRATION);float[] lens=intrinsics==null?null:intrinsics.clone();
+        long[] sampleTime;float[] shifts;
+        if(Build.VERSION.SDK_INT>=28){android.hardware.camera2.params.OisSample[] values=result.get(CaptureResult.STATISTICS_OIS_SAMPLES);int n=values==null?0:Math.min(64,values.length);sampleTime=new long[n];shifts=new float[n*2];for(int i=0;i<n;i++){sampleTime[i]=values[i].getTimestamp();shifts[i*2]=values[i].getXshift();shifts[i*2+1]=values[i].getYshift();}}
+        else{sampleTime=new long[0];shifts=new float[0];}
         // Retain no camera result or image; callbacks never wait for storage.
-        offer((g,f)->f.write(sensor+","+arrival+","+camera+","+name+","+number+","+value(exposure)+","+value(duration)+","+value(skew)+","+value(eis)+","+value(ois)+","+value(focus)+","+value(focal)+","+region+","+value(physical)+"\n"));
+        offer((g,f,a)->{StringBuilder o=new StringBuilder(),l=new StringBuilder();for(int i=0;i<sampleTime.length;i++){if(i>0)o.append('|');o.append(sampleTime[i]).append(':').append(shifts[i*2]).append(':').append(shifts[i*2+1]);}if(lens!=null)for(float v:lens){if(l.length()>0)l.append(':');l.append(v);}oisSamples+=sampleTime.length;
+            f.write(sensor+","+arrival+","+camera+","+name+","+number+","+value(exposure)+","+value(duration)+","+value(skew)+","+value(eis)+","+value(ois)+","+value(focus)+","+value(focal)+","+region+","+value(physical)+","+value(iso)+","+value(afMode)+","+value(afState)+","+value(aeState)+","+value(zoom)+","+o+","+l+"\n");});
     }
     private static String value(Object value){return value==null?"":value.toString();}
     private void offer(Row row){synchronized(queueLock){if(accepting&&!failed&&!pending.offer(row))dropped.incrementAndGet();}}
     private void write(){
         try(BufferedWriter g=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(directory,"gyro.csv")),StandardCharsets.UTF_8),65536);
-            BufferedWriter f=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(directory,"frames.csv")),StandardCharsets.UTF_8),65536)){
+            BufferedWriter f=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(directory,"frames.csv")),StandardCharsets.UTF_8),65536);
+            BufferedWriter a=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(directory,"accel.csv")),StandardCharsets.UTF_8),32768)){
             g.write("elapsed_ns,gx_rad_s,gy_rad_s,gz_rad_s,accuracy,delivery_elapsed_ns\n");
-            f.write("sensor_ns,callback_elapsed_ns,camera,recording_file_at_callback,frame_number,exposure_ns,frame_duration_ns,rolling_shutter_skew_ns,eis,ois,focus_diopters,focal_mm,crop_ltrb,physical_camera_id\n");
+            a.write("elapsed_ns,ax_m_s2,ay_m_s2,az_m_s2,accuracy,delivery_elapsed_ns\n");
+            f.write("sensor_ns,callback_elapsed_ns,camera,recording_file_at_callback,frame_number,exposure_ns,frame_duration_ns,rolling_shutter_skew_ns,eis,ois,focus_diopters,focal_mm,crop_ltrb,physical_camera_id,iso,af_mode,af_state,ae_state,zoom_ratio,ois_samples,intrinsics\n");
             summary(false);
             long flushed=SystemClock.elapsedRealtime(),summarized=flushed;
             while(accepting||!pending.isEmpty()){
-                Row row=pending.poll(100,TimeUnit.MILLISECONDS);if(row!=null)row.write(g,f);
-                if(SystemClock.elapsedRealtime()-flushed>=1000){g.flush();f.flush();flushed=SystemClock.elapsedRealtime();
-                    bytes=new File(directory,"gyro.csv").length()+new File(directory,"frames.csv").length();
-                    if(bytes>=256L*1024*1024)throw new IOException("Motion data reached the 256 MB per-ride limit");
+                Row row=pending.poll(100,TimeUnit.MILLISECONDS);if(row!=null)row.write(g,f,a);
+                if(SystemClock.elapsedRealtime()-flushed>=1000){g.flush();f.flush();a.flush();flushed=SystemClock.elapsedRealtime();
+                    bytes=new File(directory,"gyro.csv").length()+new File(directory,"frames.csv").length()+new File(directory,"accel.csv").length();
+                    if(bytes>=maxBytes)throw new IOException("Motion data reached the per-ride limit");
                 }
                 if(SystemClock.elapsedRealtime()-summarized>=5000){summary(false);summarized=SystemClock.elapsedRealtime();}
             }
-        }catch(Exception error){failed=true;pending.clear();if(sensors!=null)sensors.unregisterListener(this);callbacks.quitSafely();android.util.Log.w("DashMotion","Motion logging unavailable; original video continues",error);}
+        }catch(Exception error){failed=true;failureReason=error.getClass().getSimpleName()+": "+error.getMessage();pending.clear();if(sensors!=null)sensors.unregisterListener(this);callbacks.quitSafely();android.util.Log.w("DashMotion","Motion logging unavailable; original video continues",error);}
         finally{
             try{summary(!accepting&&!failed);}catch(Exception error){android.util.Log.w("DashMotion","Motion summary unavailable",error);}
         }
     }
     private synchronized void summary(boolean complete)throws Exception {
-            metadata.put("session_closed",complete).put("data_limit_bytes",256L*1024*1024).put("dropped_rows",dropped.get()).put("gyro_samples",samples).put("first_gyro_ns",firstNs).put("last_gyro_ns",lastNs)
-                .put("observed_hz",samples>1&&lastNs>firstNs?(samples-1)*1e9/(lastNs-firstNs):0).put("write_failed",failed);
+            metadata.put("session_closed",complete).put("data_limit_bytes",maxBytes).put("dropped_rows",dropped.get()).put("gyro_samples",samples).put("accel_samples",accelSamples).put("ois_samples",oisSamples).put("first_gyro_ns",firstNs).put("last_gyro_ns",lastNs)
+                .put("observed_hz",samples>1&&lastNs>firstNs?(samples-1)*1e9/(lastNs-firstNs):0).put("write_failed",failed).put("failure_reason",failureReason);
             android.util.AtomicFile file=new android.util.AtomicFile(new File(directory,"motion.json"));FileOutputStream out=null;
             try{out=file.startWrite();out.write(metadata.toString(2).getBytes(StandardCharsets.UTF_8));file.finishWrite(out);}
             catch(Exception error){if(out!=null)file.failWrite(out);throw error;}

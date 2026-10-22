@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "session_closed": true,
+  "write_failed": false,
+  "dropped_rows": 0,
+  "gyro_registered": true,
+  "camera_modes": [
+    {
+      "camera": "rear",
+      "id": "synthetic",
+      "timestamp_source": 1
+    }
+  ],
+  "capture_profile": "hybrid_sample",
+  "fixture_only": true
+}
