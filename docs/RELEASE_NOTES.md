@@ -1,4 +1,6 @@
-# RideDeck Dash 0.10.1
+# RideDeck Dash 0.10.2
+
+The launcher now uses the approved orange camera-and-R icon, making Dash visibly different from Standard's blue R and Yamaha's separate Yamaha-branded icon. In-app and exported-video branding remains unchanged.
 
 Editor timeline jumps and Play now refresh the visible video, including audio-enabled, muted and front-PiP previews. PiP seeks and clip/front transitions briefly rebuild the preview at the selected time instead of reusing stale compositor frames; this preview refresh does not add a pause to exports. The editing engine is updated to Media3 1.11.1, and volume/fades use its sample-position-aware gain automation.
 
