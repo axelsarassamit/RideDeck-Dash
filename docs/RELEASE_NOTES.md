@@ -1,4 +1,8 @@
-# RideDeck Dash 0.13.0
+# RideDeck Dash 0.13.1
+
+Setup, Appearance and page actions now share the RideDeck family button styling, with consistent minimum touch size, text, corners and disabled colours. Setup navigation follows the same header and section controls as both companion apps. Recording transport and the timeline editor keep their purpose-specific layouts.
+
+## Retained 0.13.0 features
 
 The editor offers Road adaptive stabilization, Classic image and the existing Hybrid lab. When image stabilization is enabled, Road adaptive is the default engine; stabilization itself remains off for a new edit until selected. Road adaptive optimizes the complete selected trajectory with time-aware acceleration smoothing, preserving steady pans and lean. A conservative recovery pass balances features across the upper road scene when the established tracker has no reliable match. The crop stays fixed at the selected strength, with smoothly limited correction near its bounds and fades around tracking breaks. Preview and export share the same correction.
 

@@ -96,6 +96,7 @@ public final class CapabilityActivity extends Activity {
         powerStatus.setPadding(28, 16, 28, 16);
         page.addView(powerStatus, 0);
         update = new Button(this);
+        RideStyle.action(update,true);
         update.setText("Check for updates");
         update.setEnabled(false);
         if (BuildConfig.DEBUG) update.setText("Updates available in the signed release app");
