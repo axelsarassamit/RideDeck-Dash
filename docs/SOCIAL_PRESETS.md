@@ -6,7 +6,7 @@ In Recordings, use **Edit video** on one recording, or **Select clips** then **S
 
 The large preview shows the composed output. Portrait places the timeline and tools below it; landscape places the timeline and tools beside it. Swipe the bottom tool strip for Clips, Crop, Front camera, Overlays, Text, Sound, Adjust and Stabilize.
 
-Tap a thumbnail strip to choose a clip and seek. Standard previews seek directly; PiP jumps and clip/front-segment transitions briefly prepare a fresh compositor at the requested time to avoid stale frames. This can pause the preview briefly at a cut; exported cuts remain continuous. Play requests made during that preparation are retained. Drag its amber trim handles, or use Trim for precise decimal-second boundaries. Split at the playhead, duplicate, move left/right, or remove a section. Removal only changes the edit. Undo/redo keeps up to 30 steps during the current editor instance. Up to 30 sections and 30 minutes of selected output are supported. Split and duplicate can reference the same original safely.
+Tap a thumbnail strip to choose a clip and seek. Standard previews seek directly; PiP jumps and clip/front-segment transitions briefly prepare a fresh compositor using the cached composition at the requested time to avoid stale frames. This can pause the preview briefly at a cut; exported cuts remain continuous. Play requests made during that preparation are retained. Drag its amber trim handles, or use Trim for precise decimal-second boundaries. Split at the playhead, duplicate, move left/right, or remove a section. Removal only changes the edit. Undo/redo keeps up to 30 steps during the current editor instance. Up to 30 sections and two hours of selected output are supported. Stabilization analysis remains limited to 30 minutes per section. Split and duplicate can reference the same original safely.
 
 ## Picture and overlays
 
@@ -39,3 +39,7 @@ Recordings show small video thumbnails. Sort by newest, oldest, name, largest or
 ## App presets
 
 Existing social defaults and the three named saved app-settings slots remain in Setup. These are separate from per-video drafts. Loading an app-settings slot changes recording/audio/storage/automation and social defaults only after confirmation; footage and companion authentication are not part of a preset. Existing projects keep their frozen editor recipe.
+
+Project opening runs off the UI thread. Only visible timeline sections generate thumbnails, and their pictures represent the retained range without distortion. Split creates two complete adjoining sections and selects the right half. Editing preview uses at most 720p; selected export quality is retained. Screen rotation is supported during export.
+
+The editor now uses a Gallery-style tool hierarchy. Editor opens contextual Split, Trim, Copy, Move and Remove actions; Back returns to Music, Captions, Aspect ratio, Adjust, Front PiP, Overlays and Stabilize. The fixed playhead stays centered while the filmstrip scrolls during playback or scrubbing. Use + to append existing recordings to the current edit.

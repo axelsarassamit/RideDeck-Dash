@@ -9,7 +9,7 @@ import java.util.*;
 /** Serializable edit recipe. Sources are always revalidated before preview/export. */
 final class SocialProject {
     static final int MAX_CLIPS=30;
-    static final long MAX_DURATION_MS=30*60*1000L;
+    static final long MAX_DURATION_MS=2*60*60*1000L;
     static final class Clip {
         final File file; final long durationMs;
         long fromMs,toMs;
@@ -46,8 +46,10 @@ final class SocialProject {
         if(!actual.getPath().startsWith(root.getPath()+File.separator)||!actual.isFile()||!ClipStore.finalized(actual))throw new IOException("A selected original is missing or not finalized");
         return actual;
     }
+    private static final Map<String,Long> durations=new LinkedHashMap<String,Long>(64,.75f,true){protected boolean removeEldestEntry(Map.Entry<String,Long> e){return size()>128;}};
     static long duration(File f)throws Exception {
-        try(MediaMetadataRetriever r=new MediaMetadataRetriever()) { r.setDataSource(f.getPath());return Long.parseLong(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)); }
+        String key=f.getCanonicalPath()+":"+f.length()+":"+f.lastModified();synchronized(durations){Long hit=durations.get(key);if(hit!=null)return hit;}
+        try(MediaMetadataRetriever r=new MediaMetadataRetriever()) { r.setDataSource(f.getPath());long value=Long.parseLong(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION));if(value<=0)throw new IOException("Video has no duration");synchronized(durations){durations.put(key,value);}return value; }
     }
     long durationMs(){long n=0;for(Clip c:clips)n+=c.lengthMs();return n;}
     Bundle bundle() {

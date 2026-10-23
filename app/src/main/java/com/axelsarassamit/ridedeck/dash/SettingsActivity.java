@@ -18,7 +18,8 @@ public final class SettingsActivity extends Activity {
   DashUi.text(this,page,"Video and storage",24);
   DashUi.button(this,page,"Presets",v->new AlertDialog.Builder(this).setTitle("Choose a preset").setItems(new String[]{"Balanced: 720p / 6 Mbps / 128 MB / 8 GB","Clear detail: 1080p / 12 Mbps / 256 MB / 16 GB","Long ride: 720p / 4 Mbps / 64 MB / 4 GB","High quality: 1080p / 16 Mbps / 512 MB / 32 GB"},(d,i)->{settings.preset(i);recreate();}).show());
   choice("Resolution","height",new int[]{720,1080},new String[]{"720p","1080p"},720);
-  choice("Dual camera workload","rearPriority",new int[]{1,0},new String[]{"Rear priority: front 720p, at most 6 Mbps","Same quality on both cameras"},1);
+  DashUi.text(this,page,"Rear priority keeps front video at 720p and at most 6 Mbps with front stabilization off, preserving rear stabilization. If two consecutive timing windows show capture pressure, live previews slow to two frames per second for that recording. Video still requests 30 fps on both cameras. This reduces competing work but cannot guarantee gap-free capture.",15);
+  choice("Dual camera workload","rearPriority",new int[]{1,0},new String[]{"Rear priority: front 720p, stabilization off","Same quality on both cameras"},1);
   DashUi.text(this,page,"Rear priority reduces front-camera encoding load when recording both cameras at 1080p. Rear quality stays at your chosen setting. Hidden previews stop generating camera frames. Actual camera cadence is shown while recording and saved with ride data. Outdoor timing and heat still need validation.",15);
   choice("Video bitrate per camera","bitrate",new int[]{4,6,8,12,16,24},new String[]{"4 Mbps","6 Mbps","8 Mbps","12 Mbps","16 Mbps","24 Mbps"},6);
   choice("Clip size per camera","clip",new int[]{64,128,256,512,1024,2048},new String[]{"64 MB","128 MB","256 MB","512 MB","1 GB","2 GB"},128);

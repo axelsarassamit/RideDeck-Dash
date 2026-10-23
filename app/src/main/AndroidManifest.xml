@@ -31,7 +31,7 @@
         <activity android:name=".AudioCheckActivity" android:exported="false" />
         <activity android:name=".SocialSettingsActivity" android:exported="false" />
         <activity android:name=".SocialStudioActivity" android:exported="false" />
-        <activity android:name=".SocialExportActivity" android:exported="false" />
+        <activity android:name=".SocialExportActivity" android:exported="false" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize" />
         <activity android:name=".OverlayPreviewActivity" android:exported="false" />
         <activity android:name=".OverlaySettingsActivity" android:exported="false" />
         <activity android:name=".SettingsActivity" android:exported="false" />

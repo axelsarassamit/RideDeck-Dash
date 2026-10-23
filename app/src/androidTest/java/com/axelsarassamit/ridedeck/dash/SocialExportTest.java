@@ -79,6 +79,7 @@ public class SocialExportTest {
     void blue(int v){assertTrue("Expected blue, got "+Integer.toHexString(v),Color.blue(v)>160&&Color.red(v)<80);}
     android.view.View text(android.view.View view,String value){if(view instanceof android.widget.TextView&&value.contentEquals(((android.widget.TextView)view).getText()))return view;if(view instanceof android.view.ViewGroup){android.view.ViewGroup group=(android.view.ViewGroup)view;for(int i=0;i<group.getChildCount();i++){android.view.View found=text(group.getChildAt(i),value);if(found!=null)return found;}}return null;}
     void thumbnails(android.view.View view,List<android.widget.ImageView> images){if(view instanceof android.widget.ImageView&&view.getTag() instanceof String&&((String)view.getTag()).contains(".mp4:"))images.add((android.widget.ImageView)view);if(view instanceof android.view.ViewGroup){android.view.ViewGroup group=(android.view.ViewGroup)view;for(int i=0;i<group.getChildCount();i++)thumbnails(group.getChildAt(i),images);}}
+    void awaitEditor(ActivityScenario<SocialStudioActivity> scenario)throws Exception{for(int i=0;i<200;i++){boolean[] ready={false};scenario.onActivity(a->ready[0]=a.project!=null&&a.firstFrameRendered);if(ready[0])return;Thread.sleep(100);}fail("Editor did not finish preparing");}
     Bitmap previewFrame(ActivityScenario<SocialStudioActivity> scenario)throws Exception {
         CountDownLatch done=new CountDownLatch(1);int[] result={-1};Bitmap[] frame={null};scenario.onActivity(a->{android.view.SurfaceView view=(android.view.SurfaceView)a.preview.getVideoSurfaceView();frame[0]=Bitmap.createBitmap(view.getWidth(),view.getHeight(),Bitmap.Config.ARGB_8888);android.view.PixelCopy.request(view,frame[0],code->{result[0]=code;done.countDown();},new Handler(Looper.getMainLooper()));});assertTrue(done.await(5,TimeUnit.SECONDS));assertEquals(android.view.PixelCopy.SUCCESS,result[0]);return frame[0];
     }
@@ -131,7 +132,7 @@ public class SocialExportTest {
     @Test public void realBatchSavesTwoIndependentTrimmedCopies()throws Exception {
         project.merge=false;Intent intent=new Intent(c,SocialExportActivity.class).putExtra("project",project.bundle()).putExtra("recipe",recipe.bundle());
         try(ActivityScenario<SocialExportActivity> scenario=ActivityScenario.launch(intent)) {
-            boolean complete=false;for(int i=0;i<600;i++) {final boolean[] state={false};final String[] message={""};scenario.onActivity(a->{state[0]=a.completed;message[0]=a.progress.getText().toString();if(a.cancelled&&!a.completed)throw new AssertionError(message[0]);});if(state[0]){complete=true;break;}Thread.sleep(100);}
+            boolean complete=false;for(int i=0;i<600;i++) {final boolean[] state={false};final String[] message={""};scenario.onActivity(a->{state[0]=a.completed;message[0]=a.progress.getText().toString();if(a.cancelled&&!a.completed)throw new AssertionError(message[0]);if(a.job==1)a.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);});if(state[0]){complete=true;break;}Thread.sleep(100);}
             assertTrue("Batch export timed out",complete);scenario.onActivity(a->{gallery.addAll(a.saved);assertEquals(2,a.saved.size());});
             for(int i=0;i<gallery.size();i++)try(MediaMetadataRetriever r=new MediaMetadataRetriever()){r.setDataSource(c,gallery.get(i));assertEquals(3000,Long.parseLong(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)),250);if(i==0)red(colour(r,1000000,.5f,.5f));else blue(colour(r,1000000,.5f,.5f));}
         }
@@ -139,8 +140,9 @@ public class SocialExportTest {
     @Test public void studioDraftSurvivesRecreationAndShowsBothLayouts()throws Exception {
         Intent intent=new Intent(c,SocialStudioActivity.class).putExtra("project",project.bundle());
         try(ActivityScenario<SocialStudioActivity> scenario=ActivityScenario.launch(intent)) {
+            awaitEditor(scenario);
             scenario.onActivity(a->{a.project.pip=true;a.project.corner=3;a.project.size=36;a.project.shiftMs=250;a.project.merge=false;Collections.swap(a.project.clips,0,1);a.refresh();});
-            scenario.recreate();scenario.onActivity(a->{assertTrue(a.project.pip);assertEquals(3,a.project.corner);assertEquals(36,a.project.size);assertEquals(250,a.project.shiftMs);assertFalse(a.project.merge);assertEquals("rear-0002.mp4",a.project.clips.get(0).file.getName());assertEquals(1000,a.project.clips.get(0).fromMs);});
+            scenario.recreate();awaitEditor(scenario);scenario.onActivity(a->{assertTrue(a.project.pip);assertEquals(3,a.project.corner);assertEquals(36,a.project.size);assertEquals(250,a.project.shiftMs);assertFalse(a.project.merge);assertEquals("rear-0002.mp4",a.project.clips.get(0).file.getName());assertEquals(1000,a.project.clips.get(0).fromMs);});
             for(int orientation:new int[]{ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE}) {
                 scenario.onActivity(a->a.setRequestedOrientation(orientation));boolean ready=false;
                 int expected=orientation==ActivityInfo.SCREEN_ORIENTATION_PORTRAIT?Configuration.ORIENTATION_PORTRAIT:Configuration.ORIENTATION_LANDSCAPE;
@@ -155,8 +157,8 @@ public class SocialExportTest {
     @Test public void timelineSplitUndoAndPersistentDraftKeepIndependentRanges()throws Exception {
         Intent intent=new Intent(c,SocialStudioActivity.class).putExtra("project",project.bundle()).putExtra("recipe",recipe.bundle());final String[] id={null};
         try(ActivityScenario<SocialStudioActivity> scenario=ActivityScenario.launch(intent)){
-            scenario.onActivity(a->{a.selected=0;a.seekMs=1500;a.release();a.split();assertEquals(3,a.project.clips.size());assertEquals(1500,a.project.clips.get(0).toMs);assertEquals(1500,a.project.clips.get(1).fromMs);a.history(false);assertEquals(2,a.project.clips.size());a.history(true);assertEquals(3,a.project.clips.size());a.setting("studio_text","Ride title");a.setting("studio_text_start",500);a.project.pipX=60;a.project.pipY=10;a.save(false);id[0]=a.draftId;});
-            Thread.sleep(500);scenario.onActivity(a->{android.view.View split=text(a.controls,"Split"),trim=text(a.controls,"Trim"),duplicate=text(a.controls,"Duplicate");assertNotNull(split);assertNotNull(trim);assertNotNull(duplicate);assertTrue("Clip actions must share the row",trim.getLeft()>split.getLeft()&&duplicate.getLeft()>trim.getLeft());assertTrue("Duplicate must fit inside editor",duplicate.getRight()<=a.controls.getWidth());});
+            awaitEditor(scenario);scenario.onActivity(a->{a.selected=0;a.seekMs=1500;a.release();a.split();assertEquals(3,a.project.clips.size());assertEquals(1500,a.project.clips.get(0).toMs);assertEquals(1500,a.project.clips.get(1).fromMs);a.history(false);assertEquals(2,a.project.clips.size());a.history(true);assertEquals(3,a.project.clips.size());a.setting("studio_text","Ride title");a.setting("studio_text_start",500);a.project.pipX=60;a.project.pipY=10;a.save(false);id[0]=a.draftId;});
+            Thread.sleep(500);scenario.onActivity(a->{android.view.View split=text(a.rail,"Split"),trim=text(a.rail,"Trim"),duplicate=text(a.rail,"Copy");assertNotNull(split);assertNotNull(trim);assertNotNull(duplicate);assertTrue("Clip actions must share the row",trim.getLeft()>split.getLeft()&&duplicate.getLeft()>trim.getLeft());assertTrue("Context tools remain horizontally scrollable",a.rail.getParent() instanceof android.widget.HorizontalScrollView);});
         }
         Bundle draft=StudioDrafts.read(c,id[0]);SocialProject restored=SocialProject.load(c,draft.getBundle("project"));assertEquals(3,restored.clips.size());assertEquals(6000,restored.durationMs());assertEquals(60,restored.pipX);assertEquals("Ride title",draft.getBundle("recipe").getString("studio_text"));
     }
@@ -181,5 +183,51 @@ public class SocialExportTest {
         SocialProject p=SocialProject.load(c,SocialProject.selection(Collections.singletonList(file.getPath())));Map<String,Object> options=new HashMap<>(recipe.snapshot);options.put("studio_stabilize",1);DashSettings stable=new DashSettings(c,options);
         SocialComposition.Built preview=SocialComposition.build(c,p,stable,false,()->false);assertEquals(4000,preview.durationMs);File output=render(p,stable);assertEquals("Stabilization must preserve all source pictures",RearStabilizationTest.frames(file,0,4000000),RearStabilizationTest.frames(output,0,Long.MAX_VALUE));try(MediaMetadataRetriever r=new MediaMetadataRetriever()){r.setDataSource(output.getPath());assertEquals(4000,Long.parseLong(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)),250);assertNotNull(r.getFrameAtTime(2000000));}
         try{SocialComposition.build(c,p,stable,true,()->true);fail("Cancelled project must not export");}catch(IOException expected){}
+    }
+
+    @Test public void splitUsesPlayheadAndPreservesBothHalvesInPreviewAndExport()throws Exception {
+        Bundle[] saved={null};
+        try(ActivityScenario<SocialStudioActivity> scenario=ActivityScenario.launch(new Intent(c,SocialStudioActivity.class).putExtra("project",project.bundle()).putExtra("recipe",recipe.bundle()))){
+            awaitEditor(scenario);
+            scenario.onActivity(a->{a.selected=0;a.seekPreview(4500);a.split();assertEquals(3,a.project.clips.size());assertEquals(6000,a.project.durationMs());assertEquals(2500,a.project.clips.get(1).toMs);assertEquals(2500,a.project.clips.get(2).fromMs);assertEquals(4000,a.project.clips.get(2).toMs);assertEquals(2,a.selected);assertEquals(4500,a.seekMs);assertTrue(a.timeline.width(new SocialProject.Clip(a.project.clips.get(0).file,60000,30000,32000))<a.timeline.width(new SocialProject.Clip(a.project.clips.get(0).file,60000,0,60000)));a.history(false);assertEquals(2,a.project.clips.size());a.history(true);assertEquals(3,a.project.clips.size());saved[0]=a.project.bundle();});
+            awaitEditor(scenario);scenario.onActivity(a->{assertEquals(6000,a.player.getDuration());assertEquals(16f/9,a.previewCanvas.getWidth()/(float)a.previewCanvas.getHeight(),.02f);});
+        }
+        File out=render(SocialProject.load(c,saved[0]));try(MediaMetadataRetriever r=new MediaMetadataRetriever()){r.setDataSource(out.getPath());assertEquals(6000,Long.parseLong(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)),100);red(colour(r,1500000,.5f,.5f));blue(colour(r,3500000,.5f,.5f));blue(colour(r,5200000,.5f,.5f));}
+        assertEquals(180,RearStabilizationTest.frames(out,0,Long.MAX_VALUE));
+    }
+    @Test public void pipSeekingReusesPreparedCompositionAndCanvasTracksFormat()throws Exception {
+        project.pip=true;
+        try(ActivityScenario<SocialStudioActivity> scenario=ActivityScenario.launch(new Intent(c,SocialStudioActivity.class).putExtra("project",project.bundle()).putExtra("recipe",recipe.bundle()))){
+            awaitEditor(scenario);SocialComposition.Built[] built={null};scenario.onActivity(a->{built[0]=a.prepared;a.seekPreview(4500);});awaitEditor(scenario);
+            scenario.onActivity(a->{assertSame("Seeking must not rescan and rebuild the whole composition",built[0],a.prepared);assertEquals(16f/9,a.previewCanvas.getWidth()/(float)a.previewCanvas.getHeight(),.02f);a.setting("social_ratio",0);a.refresh();});awaitEditor(scenario);
+            scenario.onActivity(a->assertEquals(9f/16,a.previewCanvas.getWidth()/(float)a.previewCanvas.getHeight(),.02f));
+        }
+    }
+
+    void squareKeepsShape(Bitmap frame){int x=frame.getWidth()/2,y=frame.getHeight()/2,left=x,right=x,top=y,bottom=y;while(left>0&&Color.red(frame.getPixel(left-1,y))>230&&Color.green(frame.getPixel(left-1,y))>230)left--;while(right+1<frame.getWidth()&&Color.red(frame.getPixel(right+1,y))>230&&Color.green(frame.getPixel(right+1,y))>230)right++;while(top>0&&Color.red(frame.getPixel(x,top-1))>230&&Color.green(frame.getPixel(x,top-1))>230)top--;while(bottom+1<frame.getHeight()&&Color.red(frame.getPixel(x,bottom+1))>230&&Color.green(frame.getPixel(x,bottom+1))>230)bottom++;assertTrue("Geometry marker must be visible",right-left>10&&bottom-top>10);assertEquals("A square must not stretch in preview",1,(right-left+1)/(float)(bottom-top+1),.08f);}
+    @Test public void portraitAndLandscapePreviewDoNotStretchSquareGeometry()throws Exception {
+        File file=new File(ride,"rear-geometry.mp4");try(InputStream in=InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("social/geometry.mp4");OutputStream out=new FileOutputStream(file)){byte[] bytes=new byte[8192];int n;while((n=in.read(bytes))!=-1)out.write(bytes,0,n);}ClipStore.mark(file,".ready");
+        SocialProject p=SocialProject.load(c,SocialProject.selection(Collections.singletonList(file.getPath())));
+        try(ActivityScenario<SocialStudioActivity> scenario=ActivityScenario.launch(new Intent(c,SocialStudioActivity.class).putExtra("project",p.bundle()).putExtra("recipe",recipe.bundle()))){
+            awaitEditor(scenario);Bitmap frame=previewFrame(scenario);try{squareKeepsShape(frame);}finally{frame.recycle();}
+            scenario.onActivity(a->{a.setting("social_ratio",0);a.refresh();});awaitEditor(scenario);frame=previewFrame(scenario);try{squareKeepsShape(frame);}finally{frame.recycle();}
+        }
+    }
+
+    @Test public void galleryStyleClipToolsScrubbingAndAddRecordingsKeepTheEdit()throws Exception {
+        File extra=project.clips.get(1).file;assertTrue(extra.setLastModified(1600000000000L));String label=new java.text.SimpleDateFormat("dd MMM HH:mm",Locale.getDefault()).format(new Date(extra.lastModified()))+" · "+extra.getName();
+        try(ActivityScenario<SocialStudioActivity> scenario=ActivityScenario.launch(new Intent(c,SocialStudioActivity.class).putExtra("project",project.bundle()).putExtra("recipe",recipe.bundle()))){
+            awaitEditor(scenario);scenario.onActivity(a->{assertNotNull(text(a.rail,"Editor"));text(a.rail,"Editor").performClick();assertNotNull(text(a.rail,"Split"));assertNotNull(text(a.rail,"Copy"));a.seekPreview(4500);a.centerPlayhead();assertEquals(4500,a.timeline.timeAt(a.timelineScroll.getScrollX()+a.timelineScroll.getWidth()/2f),60);a.timelineScroll.scrollTo(Math.round(a.timeline.xAt(1500)-a.timelineScroll.getWidth()/2f),0);});
+            Thread.sleep(700);scenario.onActivity(a->{assertEquals(1500,a.player.getCurrentPosition(),100);a.addRecordings();});InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            scenario.onActivity(a->{android.widget.ListView list=null;for(android.view.View root:android.view.inspector.WindowInspector.getGlobalWindowViews())for(android.view.View v:SharedSetupTest.views(root))if(v instanceof android.widget.ListView&&v.isShown())list=(android.widget.ListView)v;assertNotNull(list);int index=-1;for(int n=0;n<list.getAdapter().getCount();n++)if(label.equals(String.valueOf(list.getAdapter().getItem(n))))index=n;assertTrue(index>=0);list.performItemClick(null,index,list.getAdapter().getItemId(index));assertTrue("The chosen recording must be checked",list.isItemChecked(index));SharedSetupTest.click(a,"Add");});
+            for(int n=0;n<100;n++){boolean[] added={false};scenario.onActivity(a->added[0]=a.project.clips.size()==3);if(added[0])break;Thread.sleep(100);}awaitEditor(scenario);
+            scenario.onActivity(a->{assertEquals(3,a.project.clips.size());assertEquals(extra,a.project.clips.get(2).file);assertEquals(6000+project.clips.get(1).durationMs,a.project.durationMs());assertEquals(6000,a.seekMs,100);assertTrue(a.clipToolsVisible);});
+        }
+    }
+
+    @Test public void visibleTimelineSectionsLoadRealThumbnails()throws Exception {
+        try(ActivityScenario<SocialStudioActivity> scenario=ActivityScenario.launch(new Intent(c,SocialStudioActivity.class).putExtra("project",project.bundle()).putExtra("recipe",recipe.bundle()))){
+            awaitEditor(scenario);boolean loaded=false;for(int n=0;n<50;n++){boolean[] ready={false};scenario.onActivity(a->{Bitmap[] images=a.timeline.frames.get(a.timeline.key(a.project.clips.get(0)));ready[0]=images!=null&&images.length>0&&images[0]!=null;});if(ready[0]){loaded=true;break;}Thread.sleep(100);}scenario.onActivity(a->android.util.Log.i("DashTimelineTest","cached="+a.timeline.frames.size()+" loading="+a.timeline.loading.size()+" leading="+a.timeline.leading+" width="+a.timeline.getWidth()));assertTrue("Visible timeline clips must show video thumbnails",loaded);
+        }
     }
 }

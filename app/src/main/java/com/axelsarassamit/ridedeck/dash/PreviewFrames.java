@@ -23,7 +23,7 @@ final class PreviewFrames {
   final long[] last={0};
   final byte[] nv21=new byte[640*360*3/2];final int[] pixels=new int[640*360];
   reader.setOnImageAvailableListener(r->{try(Image image=r.acquireLatestImage()){
-   if(image==null || (!enabled && android.os.SystemClock.elapsedRealtime()>=companionPreviewUntil) || (!cameraThrottled&&android.os.SystemClock.elapsedRealtime()-last[0]<interval))return;
+   if(image==null || (!enabled && android.os.SystemClock.elapsedRealtime()>=companionPreviewUntil) || (android.os.SystemClock.elapsedRealtime()-last[0]<interval))return;
    last[0]=android.os.SystemClock.elapsedRealtime();
    int w=image.getWidth(),h=image.getHeight();Image.Plane[] planes=image.getPlanes();
    for(int n=0;n<3;n++){ByteBuffer b=planes[n].getBuffer();int rows=n==0?h:h/2,cols=n==0?w:w/2;

@@ -66,7 +66,8 @@ class VideoStabilizer implements MatrixTransformation {
                 if(index>=0){idle=0;outputDone=(info.flags&MediaCodec.BUFFER_FLAG_END_OF_STREAM)!=0;
                     try{if(info.size>0&&info.presentationTimeUs>=startUs&&info.presentationTimeUs<endUs&&(timestamps.isEmpty()||info.presentationTimeUs-startUs>timestamps.get(timestamps.size()-1))){
                         Mat gray;try(Image image=decoder.getOutputImage(index)){if(image==null)throw new IOException("Phone decoder cannot provide stabilization frames");gray=luma(image,rotation);}
-                        aw=gray.cols();ah=gray.rows();float[] delta=previous==null?null:motion(previous,gray);
+                        aw=gray.cols();ah=gray.rows();boolean gap=!timestamps.isEmpty() && StabilizationPath.captureGap(timestamps.get(timestamps.size()-1),info.presentationTimeUs-startUs);
+                        float[] delta=previous==null||gap?null:motion(previous,gray);
                         if(previous!=null){attempted++;if(delta!=null){accepted++;float[] composed=StabilizationPath.compose(new float[]{x,y,angle},delta);x=composed[0];y=composed[1];angle=composed[2];}else{segment++;x=y=angle=0;}previous.release();}
                         previous=gray;timestamps.add(info.presentationTimeUs-startUs);paths.add(new float[]{x,y,angle});deltas.add(delta);groups.add(segment);
                         if(timestamps.size()>60000)throw new IOException("Too many frames; select a shorter social range");
@@ -108,15 +109,16 @@ class VideoStabilizer implements MatrixTransformation {
         if(rotation==90||rotation==180||rotation==270){Mat upright=new Mat();Core.rotate(result,upright,rotation==90?Core.ROTATE_90_CLOCKWISE:rotation==180?Core.ROTATE_180:Core.ROTATE_90_COUNTERCLOCKWISE);result.release();return upright;}
         return result;
     }
-    private static float[] motion(Mat previous,Mat current){
-        Mat mask=Mat.zeros(previous.rows(),previous.cols(),CvType.CV_8UC1);MatOfPoint corners=new MatOfPoint();MatOfPoint2f points=new MatOfPoint2f(),next=new MatOfPoint2f();MatOfByte status=new MatOfByte();MatOfFloat errors=new MatOfFloat();Mat affine=null,inliers=new Mat();
+    static float[] motion(Mat previous,Mat current){
+        Mat mask=Mat.zeros(previous.rows(),previous.cols(),CvType.CV_8UC1);MatOfPoint corners=new MatOfPoint();MatOfPoint2f points=new MatOfPoint2f(),next=new MatOfPoint2f();MatOfPoint2f back=new MatOfPoint2f();MatOfByte status=new MatOfByte(),backStatus=new MatOfByte();MatOfFloat errors=new MatOfFloat(),backErrors=new MatOfFloat();Mat affine=null,inliers=new Mat();
         try{
             // Exclude fixed cockpit, logo and common overlay panels. Track the distant road scene.
             Imgproc.rectangle(mask,new Point(previous.cols()*0.08,previous.rows()*0.06),new Point(previous.cols()*0.92,previous.rows()*0.65),new Scalar(255),-1);
             Imgproc.goodFeaturesToTrack(previous,corners,300,0.015,12,mask,3,false,0.04);
             if(corners.rows()<15)return null;points.fromArray(corners.toArray());Video.calcOpticalFlowPyrLK(previous,current,points,next,status,errors);
-            Point[] from=points.toArray(),to=next.toArray();byte[] valid=status.toArray();float[] error=errors.toArray();List<Point> a=new ArrayList<>(),b=new ArrayList<>();
-            for(int i=0;i<valid.length;i++)if(valid[i]!=0&&error[i]<25){a.add(from[i]);b.add(to[i]);}
+            Video.calcOpticalFlowPyrLK(current,previous,next,back,backStatus,backErrors);
+            Point[] from=points.toArray(),to=next.toArray(),returned=back.toArray();byte[] valid=status.toArray(),backValid=backStatus.toArray();float[] error=errors.toArray();List<Point> a=new ArrayList<>(),b=new ArrayList<>();
+            for(int i=0;i<valid.length;i++)if(valid[i]!=0&&backValid[i]!=0&&error[i]<25&&Math.hypot(from[i].x-returned[i].x,from[i].y-returned[i].y)<=1.5){a.add(from[i]);b.add(to[i]);}
             if(a.size()<12)return null;points.fromList(a);next.fromList(b);affine=Calib3d.estimateAffinePartial2D(points,next,inliers,Calib3d.RANSAC,3,1000,0.99,10);
             if(affine.empty()||Core.countNonZero(inliers)<12||Core.countNonZero(inliers)<a.size()*0.45)return null;
             double cos=affine.get(0,0)[0],sin=affine.get(1,0)[0],dx=affine.get(0,2)[0],dy=affine.get(1,2)[0],scale=Math.hypot(cos,sin),angle=Math.atan2(sin,cos);
@@ -124,6 +126,6 @@ class VideoStabilizer implements MatrixTransformation {
             // Convert translation about the top-left corner to motion about the picture center.
             dx+=(cos-1)*previous.cols()/2-sin*previous.rows()/2;dy+=sin*previous.cols()/2+(cos-1)*previous.rows()/2;
             return new float[]{(float)dx,(float)dy,(float)angle};
-        }finally{mask.release();corners.release();points.release();next.release();status.release();errors.release();inliers.release();if(affine!=null)affine.release();}
+        }finally{mask.release();corners.release();points.release();next.release();back.release();status.release();backStatus.release();errors.release();backErrors.release();inliers.release();if(affine!=null)affine.release();}
     }
 }

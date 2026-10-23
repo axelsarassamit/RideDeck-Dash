@@ -1,4 +1,18 @@
-# RideDeck Dash 0.12.1
+# RideDeck Dash 0.12.2
+
+The editor follows the inspected Xiaomi Gallery workflow: a centered proportion-correct preview, fixed playhead over a scrolling filmstrip, amber clip selection, flat icon tools, contextual Editor actions, and a working Add recordings control. It retains Dash overlays, front PiP and stabilization. Only implemented tools are shown.
+
+The editor splits the clip under the playhead into two editable halves without changing total duration and selects the new right-hand half. Undo/redo retain selection and playhead. The timeline shows only the edited portions, samples thumbnails from each portion, preserves thumbnail proportions and no longer trims on a simple tap of a handle. Preview uses the chosen output-canvas proportions in both phone orientations.
+
+Editing preview is capped at 720p while exports keep their selected quality. Rotating the export screen no longer interrupts an active batch. Project opening runs off the UI thread. Only visible timeline clips request thumbnails. Duration metadata is cached by file identity/size/modification time, and PiP seeks and boundary refreshes reuse the prepared composition instead of rescanning and rebuilding the whole project. Stabilization caching now accommodates multi-clip edits with a bounded frame budget. Projects support up to 30 clips and two hours in total; per-clip stabilization analysis still supports at most 30 minutes. Long encodes remain device-dependent and are not instantaneous.
+
+Rear priority now disables front-camera EIS/OIS while keeping the front recording at 720p and at most 6 Mbps. Rear stabilization stays selected as before. After two consecutive five-second windows with rear cadence below 27 fps or at least five long gaps, the session slows live previews to at most two updates per second. Both recordings still request 30 fps. Relief remains active until Stop to avoid repeated camera-request changes. Same-quality dual mode retains its prior stabilization behavior.
+
+Preview conversion is also rate-limited on the image consumer, even when camera-side delivery was already throttled.
+
+Image stabilization checks optical flow in both directions and rejects inconsistent tracks. It starts a fresh motion segment after source-picture gaps of 100 ms or longer and fades corrections on either side. Existing native-OIS recordings remain supported by image smoothing. The original timing and all available source pictures are retained. These changes reduce competing work and unsafe correction; they do not recover missing pictures or guarantee gap-free outdoor recording.
+
+## Earlier 0.12.1 features
 
 Phone microphone selection no longer requires Bluetooth permission. Nearby-device permission is requested only when selecting a Bluetooth microphone. A visible MIC OFF indicator makes silent recording explicit, and new motion summaries include the configured audio input and source for diagnosis. Explicit audio-off choices remain respected.
 
@@ -40,4 +54,4 @@ Stabilization offers Off, Gentle, Strong and Maximum and analyzes the selected m
 
 Recordings now show video thumbnails, with newest/oldest/name/file-size sorting and rear/front/protected filters. Multi-selection remains available. Thumbnail decoding pauses while recording.
 
-Export one merged social video or separate copies. Drafts reference original files and are not backups. Music uses a local file; platform music and posting remain in the social app. The moving map uses recorded GPS trace. Keep Dash open while exporting; completed copies survive cancellation of a later batch item.
+Export one merged social video or separate copies. Drafts reference original files and are not backups. Music uses a local file; platform music and posting remain in the social app. The moving map uses recorded GPS trace. Keep Dash open while exporting; rotation is supported and completed copies survive cancellation of a later batch item.

@@ -2,6 +2,8 @@ package com.axelsarassamit.ridedeck.dash;
 
 /** Bounded, centered motion smoothing. Rejected tracking intervals are isolated segments. */
 final class StabilizationPath {
+    // Do not infer one camera move across a missing tenth of a second.
+    static boolean captureGap(long previousUs,long currentUs){return currentUs-previousUs>=100000;}
     static float[][] smooth(long[] times, float[][] motion, int[] segments, int strength, int width, int height) {
         float zoom = zoom(strength);
         float[][] result = new float[times.length][3];

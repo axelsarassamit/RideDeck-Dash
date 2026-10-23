@@ -22,7 +22,7 @@ public final class SocialExportActivity extends Activity {
         RideAppearance.prepare(this);super.onCreate(state);getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         LinearLayout page=DashUi.page(this);ScrollView scroll=new ScrollView(this);scroll.addView(page);setContentView(scroll);
         DashUi.text(this,page,"Create social videos",26);progress=DashUi.text(this,page,"Preparing selection",18);
-        DashUi.text(this,page,"Keep Dash open until finished. Leaving or rotating cancels the unfinished export. Completed copies remain saved; original recordings are never replaced.",15);
+        DashUi.text(this,page,"Keep Dash open until finished. Leaving cancels the unfinished export. You can rotate the screen while it runs. Completed copies remain saved; original recordings are never replaced.",15);
         share=DashUi.button(this,page,"Share completed videos",v->share());share.setVisibility(View.GONE);
         DashUi.button(this,page,"Close / cancel",v->finish());
         if(state!=null){ArrayList<String> previous=state.getStringArrayList("saved");if(previous!=null)for(String uri:previous)saved.add(Uri.parse(uri));progress.setText("Export interrupted by recreation. "+saved.size()+" completed copies kept. Return to the studio to start again.");showShare();return;}
@@ -88,6 +88,6 @@ public final class SocialExportActivity extends Activity {
     void stop(String message){cancelled=true;handler.removeCallbacksAndMessages(null);if(transformer!=null){transformer.cancel();transformer=null;}if(output!=null)output.delete();progress.setText(message+"\n"+saved.size()+" completed copies kept.");showShare();}
     final Runnable tick=new Runnable(){public void run(){if(cancelled||completed)return;try{check();if(transformer!=null){ProgressHolder holder=new ProgressHolder();if(transformer.getProgress(holder)==Transformer.PROGRESS_STATE_AVAILABLE)progress.setText("Creating video "+(job+1)+" of "+(project.merge?1:project.clips.size())+" · "+holder.progress+"%");}handler.postDelayed(this,500);}catch(Exception e){stop("Export stopped: "+e.getMessage());}}};
     @Override protected void onSaveInstanceState(Bundle b){ArrayList<String> uris=new ArrayList<>();for(Uri uri:saved)uris.add(uri.toString());b.putStringArrayList("saved",uris);super.onSaveInstanceState(b);}
-    @Override protected void onStop(){if(!completed)stop("Export cancelled");super.onStop();}
+    @Override protected void onStop(){if(!completed){android.util.Log.i("DashSocialExport","Export stopped; changingConfiguration="+isChangingConfigurations()+" finishing="+isFinishing());stop("Export cancelled");}super.onStop();}
     @Override protected void onDestroy(){if(!completed){cancelled=true;if(transformer!=null)transformer.cancel();if(output!=null)output.delete();}handler.removeCallbacksAndMessages(null);super.onDestroy();}
 }

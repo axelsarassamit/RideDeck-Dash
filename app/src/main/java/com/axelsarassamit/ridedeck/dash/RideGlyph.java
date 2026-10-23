@@ -4,12 +4,19 @@ import android.graphics.drawable.Drawable;
 import android.content.Context;
 /** Small native line icons matching the RideDeck cockpit controls. */
 final class RideGlyph extends Drawable {
-    private final Paint ink=new Paint(Paint.ANTI_ALIAS_FLAG);private final String action;private final Context context;
+    private Integer tint;private final Paint ink=new Paint(Paint.ANTI_ALIAS_FLAG);private final String action;private final Context context;
     RideGlyph(Context c,String action){context=c;this.action=action;int size=Math.round(24*c.getResources().getDisplayMetrics().density);setBounds(0,0,size,size);}
+    RideGlyph(Context c,String action,int tint){this(c,action);this.tint=tint;}
     private void line(Canvas c,float... xy){Path p=new Path();p.moveTo(xy[0],xy[1]);for(int i=2;i<xy.length;i+=2)p.lineTo(xy[i],xy[i+1]);c.drawPath(p,ink);}
     @Override public void draw(Canvas c){c.save();c.translate(getBounds().left,getBounds().top);c.scale(getBounds().width()/24f,getBounds().height()/24f);boolean enabled=false;for(int state:getState())if(state==android.R.attr.state_enabled)enabled=true;
-        ink.setColor(!enabled?RideStyle.MUTED:action.equals("Stop recording")?RideStyle.DANGER:AppearancePalette.accent(RideAppearance.accentIndex(context),RideAppearance.isDark(context)));ink.setStyle(Paint.Style.STROKE);ink.setStrokeWidth(2);ink.setStrokeCap(Paint.Cap.ROUND);ink.setStrokeJoin(Paint.Join.ROUND);
+        ink.setColor(!enabled?RideStyle.MUTED:tint!=null?tint:action.equals("Stop recording")?RideStyle.DANGER:AppearancePalette.accent(RideAppearance.accentIndex(context),RideAppearance.isDark(context)));ink.setStyle(Paint.Style.STROKE);ink.setStrokeWidth(2);ink.setStrokeCap(Paint.Cap.ROUND);ink.setStrokeJoin(Paint.Join.ROUND);
         switch(action){
+            case "Back":line(c,15,4,7,12,15,20);break;
+            case "Copy":c.drawRoundRect(7,7,21,21,2,2,ink);line(c,3,16,3,3,16,3);break;
+            case "Delete":line(c,3,6,21,6);line(c,7,6,7,3,17,3,17,6);line(c,5,6,6,21,18,21,19,6);line(c,10,10,10,17);line(c,14,10,14,17);break;
+            case "Split":c.drawCircle(6,18,3,ink);c.drawCircle(18,18,3,ink);line(c,4,3,18,18);line(c,20,3,6,18);break;
+            case "Move left":line(c,13,5,6,12,13,19);line(c,6,12,21,12);break;
+            case "Move right":line(c,11,5,18,12,11,19);line(c,3,12,18,12);break;
             case "Clips":c.drawRoundRect(3,5,21,19,2,2,ink);line(c,9,5,9,19);line(c,15,5,15,19);break;
             case "Crop":line(c,6,2,6,18,22,18);line(c,2,6,18,6,18,22);break;
             case "Front camera":c.drawRoundRect(2,4,22,20,2,2,ink);c.drawRoundRect(13,11,20,18,1,1,ink);break;

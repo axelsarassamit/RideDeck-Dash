@@ -13,13 +13,14 @@ import java.util.function.BooleanSupplier;
 /** Shared GPU composition for playable multi-clip preview and export. */
 @androidx.annotation.OptIn(markerClass=androidx.media3.common.util.UnstableApi.class)
 final class SocialComposition {
-    private static final Map<String,VideoStabilizer> motion=new LinkedHashMap<String,VideoStabilizer>(4,.75f,true){protected boolean removeEldestEntry(Map.Entry<String,VideoStabilizer> e){return size()>4;}};
+    private static final Map<String,VideoStabilizer> motion=new LinkedHashMap<String,VideoStabilizer>(4,.75f,true){protected boolean removeEldestEntry(Map.Entry<String,VideoStabilizer> e){int frames=0;for(VideoStabilizer value:values())frames+=value.times.length;return size()>30||frames>120000;}};
     static final class Built {
         final Composition composition;final long durationMs;final int matched;final long missingFrontMs;
         Built(Composition c,long d,int m,long missing){composition=c;durationMs=d;matched=m;missingFrontMs=missing;}
     }
     static Built build(Context c,SocialProject p,DashSettings recipe,boolean exporting,BooleanSupplier cancelled)throws Exception {
-        if(p.durationMs()>SocialProject.MAX_DURATION_MS)throw new IOException("Trim the selection to 30 minutes or less");
+        if(!exporting && recipe.number("social_quality",1080)>720){Map<String,Object> previewSettings=new HashMap<>(recipe.snapshot);previewSettings.put("social_quality",720);recipe=new DashSettings(c,previewSettings);}
+        if(p.durationMs()>SocialProject.MAX_DURATION_MS)throw new IOException("Trim the selection to two hours or less");
         if(p.pip){Map<String,Object> rearSettings=new HashMap<>(recipe.snapshot);rearSettings.put("social_fit",p.fillRear?1:0);recipe=new DashSettings(c,rearSettings);}
         boolean mute=recipe.number("social_mute",0)==1;
         Set<Integer> rearTypes=new HashSet<>();rearTypes.add(C.TRACK_TYPE_VIDEO);if(!mute)rearTypes.add(C.TRACK_TYPE_AUDIO);
@@ -37,7 +38,7 @@ final class SocialComposition {
             boolean hybrid=recipe.number("studio_hybrid",0)==1;
             if(strength>0){String key=file.getPath()+":"+file.lastModified()+":"+item.fromMs+":"+item.toMs+":"+strength+":"+hybrid+":"+new File(file.getParentFile(),"motion.json").lastModified();
                 synchronized(motion){correction=motion.get(key);}
-                if(correction==null){correction=VideoStabilizer.analyze(file,item.fromMs*1000,item.toMs*1000,strength,hybrid,cancelled,n->{});if(cancelled.getAsBoolean())throw new IOException("Analysis cancelled");synchronized(motion){motion.put(key,correction);}}
+                if(correction==null){correction=VideoStabilizer.analyze(file,item.fromMs*1000,item.toMs*1000,strength,hybrid,cancelled,n->{});if(cancelled.getAsBoolean())throw new IOException("Analysis cancelled");synchronized(motion){motion.put(key,correction);int frames=0;for(VideoStabilizer cached:motion.values())frames+=cached.times.length;Iterator<VideoStabilizer> oldest=motion.values().iterator();while(frames>120000&&motion.size()>1&&oldest.hasNext()){frames-=oldest.next().times.length;oldest.remove();}}}
             }
             List<Effect> effects=SocialEffects.create(c,file,recipe,item.fromMs*1000,correction,roads,false);
             List<androidx.media3.common.audio.AudioProcessor> audio=new ArrayList<>();
@@ -108,7 +109,7 @@ final class SocialComposition {
         return new Built(builder.build(),p.durationMs(),matched,(outputUs-coveredUs)/1000);
     }
     private static EditedMediaItem edit(File file,long durationMs,long startUs,long endUs,boolean mute,Effects effects) {
-        MediaItem media=new MediaItem.Builder().setUri(Uri.fromFile(file)).setClippingConfiguration(new MediaItem.ClippingConfiguration.Builder()
+        MediaItem media=new MediaItem.Builder().setMediaId(file.getPath()+":"+startUs+":"+endUs).setUri(Uri.fromFile(file)).setClippingConfiguration(new MediaItem.ClippingConfiguration.Builder()
             .setStartPositionUs(startUs).setEndPositionUs(endUs).build()).build();
         return new EditedMediaItem.Builder(media).setDurationUs(durationMs*1000).setRemoveAudio(mute).setEffects(effects).build();
     }

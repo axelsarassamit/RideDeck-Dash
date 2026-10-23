@@ -19,12 +19,12 @@ public class MotionCaptureTest {
         SharedPreferences prefs=c.getSharedPreferences("dash-settings",Context.MODE_PRIVATE);Map<String,?> before=prefs.getAll();
         File ride=null;
         try{
-            prefs.edit().putInt("motion_data",1).putInt("autostart",0).putString("audio","off").putString("mode","dual").commit();
+            prefs.edit().putInt("motion_data",1).putInt("autostart",0).putString("audio","off").putString("mode","dual").putInt("rearPriority",1).commit();
             try(ActivityScenario<DashboardActivity> scenario=ActivityScenario.launch(DashboardActivity.class)){
                 scenario.onActivity(a->{a.getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);a.mode="dual";a.request(true);});
                 for(int i=0;i<150&&!RecordingService.capturing;i++)Thread.sleep(100);
                 assertTrue("Both cameras must start: "+RecordingService.state,RecordingService.capturing);ride=RecordingService.rideDirectory;
-                Thread.sleep(30000);assertTrue("Capture must continue with logging: "+RecordingService.state,RecordingService.capturing);
+                Thread.sleep(Math.max(30,Math.min(180,Integer.parseInt(InstrumentationRegistry.getArguments().getString("captureSeconds","30"))))*1000L);assertTrue("Capture must continue with logging: "+RecordingService.state,RecordingService.capturing);
                 scenario.onActivity(a->a.command("STOP"));for(int i=0;i<150&&(RecordingService.running||RecordingService.finalizing);i++)Thread.sleep(100);
                 assertFalse(RecordingService.running||RecordingService.finalizing);
             }
@@ -37,6 +37,7 @@ public class MotionCaptureTest {
             for(String row:frameRows.subList(1,frameRows.size())){
                 String[] v=row.split(",",-1);assertTrue(v.length>=14);long time=Long.parseLong(v[0]);assertTrue(time>lastFrame.getOrDefault(v[2],0L));lastFrame.put(v[2],time);counts.put(v[2],counts.getOrDefault(v[2],0)+1);
             }
+            for(String row:frameRows.subList(1,frameRows.size())){String[] v=row.split(",",-1);if("front".equals(v[2])){assertEquals("Rear priority removes front EIS workload","0",v[8]);assertEquals("Rear priority removes front OIS workload","0",v[9]);}}
             assertTrue(counts.getOrDefault("rear",0)>750);assertTrue(counts.getOrDefault("front",0)>750);
             copyEvidence(c,ride);
             System.out.println("Motion capture ride: "+ride.getName());

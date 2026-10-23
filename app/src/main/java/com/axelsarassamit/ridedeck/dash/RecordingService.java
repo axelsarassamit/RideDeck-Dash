@@ -62,6 +62,7 @@ public final class RecordingService extends Service {
     private volatile int startedTracks;
     private BufferedWriter events;
     private MotionTelemetry motion;
+    private final CapturePacing pacing=new CapturePacing();
     private final BroadcastReceiver battery = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) { if (worker != null) worker.post(() -> enforceGate(i)); }
     };
@@ -280,7 +281,7 @@ public final class RecordingService extends Service {
             if (modes != null) for (int value : modes) if (value == knownEis && knownEis > 0) supportedKnown = true;
             if (supportedKnown) { eis = knownEis; ois = 0; }
             else if (knownEis == 0 && knownOis == 1 && opticalAvailable && settings.number("stabilization",1)!=0) { eis = 0; ois = 1; }
-            if(settings.number("stabilization",1)==0){eis=0;ois=0;}
+            if(settings.number("stabilization",1)==0 || reducedFront){eis=0;ois=0;}
             view=PreviewFrames.reader(label,c.get(CameraCharacteristics.SENSOR_ORIENTATION),worker,true);
             recorder = new MediaRecorder();
             boolean withAudio=!"off".equals(settings.text("audio","off")) && ("rear".equals(label)||tracks.size()==1);
@@ -346,7 +347,7 @@ public final class RecordingService extends Service {
                 Surface target = recorder.getSurface();
                 request = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
                 request.addTarget(target);previewTarget=PreviewFrames.enabled||SystemClock.elapsedRealtime()<PreviewFrames.companionPreviewUntil;
-                previewPeriod=Math.max(3,Math.round(PreviewFrames.interval*30f/1000));
+                previewPeriod=Math.max(3,Math.round(pacing.previewInterval(PreviewFrames.interval)*30f/1000));
                 CameraCharacteristics characteristics = manager.getCameraCharacteristics(id);
                 CameraFocus.apply(request, characteristics, settings, label);
                 android.util.Range<Integer>[] ranges = characteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
@@ -398,7 +399,7 @@ public final class RecordingService extends Service {
             List<CaptureRequest> burst=new ArrayList<>();for(int n=1;n<previewPeriod;n++){burst.add(video);}burst.add(display);
             session.setRepeatingBurst(burst,captureCallback,worker);
         }
-        void updatePreviewTarget(){if(session==null||request==null||stopping)return;boolean wanted=PreviewFrames.enabled||SystemClock.elapsedRealtime()<PreviewFrames.companionPreviewUntil;int period=Math.max(3,Math.round(PreviewFrames.interval*30f/1000));if(wanted==previewTarget&&period==previewPeriod)return;
+        void updatePreviewTarget(){if(session==null||request==null||stopping)return;boolean wanted=PreviewFrames.enabled||SystemClock.elapsedRealtime()<PreviewFrames.companionPreviewUntil;int period=Math.max(3,Math.round(pacing.previewInterval(PreviewFrames.interval)*30f/1000));if(wanted==previewTarget&&period==previewPeriod)return;
             try{previewTarget=wanted;previewPeriod=period;repeat();}catch(CameraAccessException error){fail("Cannot update camera preview");}}
         String preferredAudioKey;
         Runnable thisTrackAudioCheck(){return ()->{if(!running||stopping||recorder==null)return;
@@ -426,6 +427,7 @@ public final class RecordingService extends Service {
                                             try{event("cadence_"+String.format(Locale.ROOT,"%.1ffps_%dgaps",observedFps,windowGaps),current,sensorTime);
                                                 event("optics_af"+result.get(CaptureResult.CONTROL_AF_MODE)+"_focus"+result.get(CaptureResult.LENS_FOCUS_DISTANCE)+"_focal"+result.get(CaptureResult.LENS_FOCAL_LENGTH)+"_exposureNs"+result.get(CaptureResult.SENSOR_EXPOSURE_TIME)+"_frameNs"+result.get(CaptureResult.SENSOR_FRAME_DURATION)+(Build.VERSION.SDK_INT>=30?"_zoom"+result.get(CaptureResult.CONTROL_ZOOM_RATIO):"")+(Build.VERSION.SDK_INT>=29?"_thermal"+getSystemService(PowerManager.class).getCurrentThermalStatus():""),current,sensorTime);
                                             }catch(IOException error){fail("Cannot save camera timing");}
+                                            if("rear".equals(label)&&settings.number("rearPriority",1)==1&&pacing.observe(observedFps,windowGaps)){try{event("rear_priority_preview_backoff_500ms",current,sensorTime);}catch(IOException error){fail("Cannot save pacing diagnostics");}}
                                             windowSensor=sensorTime;windowFrames=1;windowGaps=0;updateCameraStatus();
                                         }
                                     }
@@ -439,10 +441,10 @@ public final class RecordingService extends Service {
                                         if (frames == 240 && appliedEis != null && appliedOis != null && (appliedEis > 0 || appliedOis > 0)) {
                                             getSharedPreferences("camera-modes", MODE_PRIVATE).edit().putInt(modeKey+":eis",appliedEis).putInt(modeKey+":ois",appliedOis).apply();
                                         }
-                                        if (frames == 90 && Objects.equals(appliedEis, 0) && eis == 2 && basicEis) {
+                                        if (frames == 90 && Objects.equals(appliedEis, 0) && eis == 2 && basicEis && !reducedFront) {
                                             eis = 1; request.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, eis);
                                             repeat();
-                                        } else if (frames == 180 && Objects.equals(appliedEis, 0) && opticalAvailable && settings.number("stabilization",1)!=0) {
+                                        } else if (frames == 180 && Objects.equals(appliedEis, 0) && opticalAvailable && settings.number("stabilization",1)!=0 && !reducedFront) {
                                             eis = 0; ois = 1;
                                             request.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, eis);
                                             request.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, ois);
