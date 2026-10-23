@@ -40,6 +40,7 @@ final class MotionTelemetry implements SensorEventListener,AutoCloseable {
         accelerometer=sensors==null?null:sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         maxBytes=Math.max(64,Math.min(1024,new DashSettings(context).number("motion_limit",512)))*1024L*1024;
         metadata.put("schema",2).put("purpose","motion evidence and experimental hybrid calibration").put("capture_profile",profile)
+            .put("audio_input",new DashSettings(context).text("audio","off")).put("audio_source",new DashSettings(context).number("source",1))
             .put("device_model",Build.MODEL).put("device_manufacturer",Build.MANUFACTURER).put("build_fingerprint",Build.FINGERPRINT)
             .put("video_sync","camera timestamps require matching to encoded clip PTS and calibration; callback arrival is not an exposure timestamp")
             .put("gyro_units","rad/s; Android device axes, unaffected by display rotation")

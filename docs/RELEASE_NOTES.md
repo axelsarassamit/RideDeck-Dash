@@ -1,4 +1,8 @@
-# RideDeck Dash 0.12.0
+# RideDeck Dash 0.12.1
+
+Phone microphone selection no longer requires Bluetooth permission. Nearby-device permission is requested only when selecting a Bluetooth microphone. A visible MIC OFF indicator makes silent recording explicit, and new motion summaries include the configured audio input and source for diagnosis. Explicit audio-off choices remain respected.
+
+## Earlier 0.12.0 features
 
 Video editing, preview, stabilization analysis and social export now work on battery without a charger or a 50% reserve. Recording retains its existing charger grace and 30% minimum; backup and sound-check rules are unchanged.
 
