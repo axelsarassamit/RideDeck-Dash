@@ -137,6 +137,25 @@ public class SocialExportTest {
             for(int i=0;i<gallery.size();i++)try(MediaMetadataRetriever r=new MediaMetadataRetriever()){r.setDataSource(c,gallery.get(i));assertEquals(3000,Long.parseLong(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)),250);if(i==0)red(colour(r,1000000,.5f,.5f));else blue(colour(r,1000000,.5f,.5f));}
         }
     }
+    @Test public void deletingDraftsKeepsOriginalsAndOtherDrafts()throws Exception {
+        String first=UUID.randomUUID().toString(),second=UUID.randomUUID().toString(),keep=UUID.randomUUID().toString();
+        long[] lengths=project.clips.stream().mapToLong(x->x.file.length()).toArray();
+        try{
+            for(String id:Arrays.asList(first,second,keep))StudioDrafts.save(c,id,project.bundle(),recipe.bundle());
+            StudioDrafts.delete(c,first);StudioDrafts.delete(c,second);
+            assertFalse(StudioDrafts.file(c,first).exists());assertFalse(StudioDrafts.file(c,second).exists());assertNotNull(StudioDrafts.read(c,keep));
+            for(int i=0;i<lengths.length;i++)assertEquals(lengths[i],project.clips.get(i).file.length());
+            try{StudioDrafts.delete(c,"../outside");fail("Path traversal accepted");}catch(IOException expected){}
+        }finally{for(String id:Arrays.asList(first,second,keep))StudioDrafts.delete(c,id);}
+    }
+    @Test public void deletedCurrentDraftDoesNotReturnWhenEditorStops()throws Exception {
+        String[] id={null};
+        try(ActivityScenario<SocialStudioActivity> scenario=ActivityScenario.launch(new Intent(c,SocialStudioActivity.class).putExtra("project",project.bundle()).putExtra("recipe",recipe.bundle()))){
+            awaitEditor(scenario);scenario.onActivity(a->{a.save(false);id[0]=a.draftId;try{StudioDrafts.delete(a,id[0]);}catch(IOException e){throw new AssertionError(e);}a.draftsDeleted(Collections.singletonList(id[0]));});
+        }
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();assertNotNull(id[0]);assertFalse("Deleted edit was autosaved again",StudioDrafts.file(c,id[0]).exists());
+        for(SocialProject.Clip clip:project.clips)assertTrue(clip.file.exists());
+    }
     @Test public void studioDraftSurvivesRecreationAndShowsBothLayouts()throws Exception {
         Intent intent=new Intent(c,SocialStudioActivity.class).putExtra("project",project.bundle());
         try(ActivityScenario<SocialStudioActivity> scenario=ActivityScenario.launch(intent)) {

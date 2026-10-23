@@ -102,9 +102,7 @@ public final class ClipsActivity extends Activity {
     }
     @Override protected void onDestroy(){if(thumbnails!=null)thumbnails.close();super.onDestroy();}
     private void showDrafts(){
-        List<File> drafts=StudioDrafts.list(this);if(drafts.isEmpty()){Toast.makeText(this,"No saved edits yet. Open Edit video on a recording to begin.",Toast.LENGTH_LONG).show();return;}
-        String[] labels=new String[drafts.size()];for(int i=0;i<labels.length;i++)labels[i]=new SimpleDateFormat("dd MMM HH:mm:ss",Locale.getDefault()).format(new Date(drafts.get(i).lastModified()));
-        new AlertDialog.Builder(this).setTitle("Saved video edits").setItems(labels,(d,i)->startActivity(new Intent(this,SocialStudioActivity.class).putExtra("draft",drafts.get(i).getName().replace(".draft","")))).setNegativeButton("Close",null).show();
+        StudioDraftPicker.show(this,id->startActivity(new Intent(this,SocialStudioActivity.class).putExtra("draft",id)),ids->{},null);
     }
     private void updateSelection(List<File> files){long bytes=0;int protectedCount=0,count=0;for(File file:files)if(selected.contains(file.getPath())){count++;bytes+=file.length();if(ClipStore.protectedClip(file))protectedCount++;}selectionSummary.setText(count+" selected · "+String.format(Locale.ROOT,"%.1f MB",bytes/1048576.0)+(protectedCount>0?" · "+protectedCount+" protected":""));deleteSelected.setEnabled(count>0&&!RecordingService.running&&!RecordingService.finalizing);socialSelected.setEnabled(count>0&&count<=SocialProject.MAX_CLIPS&&!RecordingService.running&&!RecordingService.finalizing);}
     private void openStudio(Collection<String> paths){

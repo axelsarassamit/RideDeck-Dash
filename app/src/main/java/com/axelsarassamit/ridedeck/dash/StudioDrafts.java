@@ -20,4 +20,8 @@ final class StudioDrafts {
         Parcel p=Parcel.obtain();try{p.unmarshall(bytes,0,bytes.length);p.setDataPosition(0);Bundle b=p.readBundle(StudioDrafts.class.getClassLoader());if(b==null||b.getInt("schema")!=1)throw new IOException("Unsupported draft");return b;}catch(RuntimeException e){throw new IOException("Unreadable draft",e);}finally{p.recycle();}
     }
     static List<File> list(Context c){File[] files=folder(c).listFiles((d,n)->n.endsWith(".draft"));List<File> result=new ArrayList<>(files==null?Collections.emptyList():Arrays.asList(files));result.sort((a,b)->Long.compare(b.lastModified(),a.lastModified()));return result;}
+    static void delete(Context c,String id)throws IOException {
+        File f=file(c,id);new AtomicFile(f).delete();
+        if(f.exists()||new File(f.getPath()+".bak").exists()||new File(f.getPath()+".new").exists())throw new IOException("Could not remove draft");
+    }
 }

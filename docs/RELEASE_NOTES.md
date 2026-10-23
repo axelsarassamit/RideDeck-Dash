@@ -1,4 +1,8 @@
-# RideDeck Dash 0.12.2
+# RideDeck Dash 0.12.3
+
+Saved edits now offer Delete drafts from both the library and the editor. Select individual drafts, several drafts or Select all, then confirm deletion. Only saved edit recipes are removed; source recordings and exported videos are preserved. Deleting the currently open edit closes it and prevents automatic saving from recreating it.
+
+## Earlier 0.12.2 features
 
 The editor follows the inspected Xiaomi Gallery workflow: a centered proportion-correct preview, fixed playhead over a scrolling filmstrip, amber clip selection, flat icon tools, contextual Editor actions, and a working Add recordings control. It retains Dash overlays, front PiP and stabilization. Only implemented tools are shown.
 
