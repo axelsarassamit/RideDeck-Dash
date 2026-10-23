@@ -41,6 +41,9 @@ class VideoStabilizer implements MatrixTransformation {
         return analyze(file,startUs,endUs,strength,false,cancelled,progress);
     }
     static VideoStabilizer analyze(File file,long startUs,long endUs,int strength,boolean hybrid,BooleanSupplier cancelled,IntConsumer progress) throws Exception {
+        return analyze(file,startUs,endUs,strength,hybrid,false,cancelled,progress);
+    }
+    static VideoStabilizer analyze(File file,long startUs,long endUs,int strength,boolean hybrid,boolean road,BooleanSupplier cancelled,IntConsumer progress) throws Exception {
         if(!OpenCVLoader.initLocal())throw new IOException("Stabilization engine unavailable");
         MediaExtractor extractor=new MediaExtractor();MediaCodec decoder=null;Mat previous=null;
         List<Long> timestamps=new ArrayList<>();List<float[]> paths=new ArrayList<>(),deltas=new ArrayList<>();List<Integer> groups=new ArrayList<>();
@@ -67,7 +70,7 @@ class VideoStabilizer implements MatrixTransformation {
                     try{if(info.size>0&&info.presentationTimeUs>=startUs&&info.presentationTimeUs<endUs&&(timestamps.isEmpty()||info.presentationTimeUs-startUs>timestamps.get(timestamps.size()-1))){
                         Mat gray;try(Image image=decoder.getOutputImage(index)){if(image==null)throw new IOException("Phone decoder cannot provide stabilization frames");gray=luma(image,rotation);}
                         aw=gray.cols();ah=gray.rows();boolean gap=!timestamps.isEmpty() && StabilizationPath.captureGap(timestamps.get(timestamps.size()-1),info.presentationTimeUs-startUs);
-                        float[] delta=previous==null||gap?null:motion(previous,gray);
+                        float[] delta=previous==null||gap?null:road&&!hybrid?roadMotion(previous,gray):motion(previous,gray);
                         if(previous!=null){attempted++;if(delta!=null){accepted++;float[] composed=StabilizationPath.compose(new float[]{x,y,angle},delta);x=composed[0];y=composed[1];angle=composed[2];}else{segment++;x=y=angle=0;}previous.release();}
                         previous=gray;timestamps.add(info.presentationTimeUs-startUs);paths.add(new float[]{x,y,angle});deltas.add(delta);groups.add(segment);
                         if(timestamps.size()>60000)throw new IOException("Too many frames; select a shorter social range");
@@ -78,15 +81,15 @@ class VideoStabilizer implements MatrixTransformation {
             if(timestamps.size()<10||accepted<attempted*0.25)throw new IOException("Too few reliable road features for stabilization; export without smoothing");
             long[] times=new long[timestamps.size()];int[] segments=new int[times.length];for(int i=0;i<times.length;i++){times[i]=timestamps.get(i);segments[i]=groups.get(i);}
             if(hybrid){progress.accept(100);return HybridStabilizer.create(file,startUs,endUs,times,deltas,strength,aw,ah,rotation,cancelled);}
-            float[][] correction=StabilizationPath.smooth(times,paths.toArray(new float[0][]),segments,strength,aw,ah);
+            float[][] correction=road?RoadTrajectory.smooth(times,paths.toArray(new float[0][]),segments,strength,aw,ah):StabilizationPath.smooth(times,paths.toArray(new float[0][]),segments,strength,aw,ah);
             // Keep a local motion audit with the ride for evidence-based export diagnostics.
             // It contains no decoded pictures, audio or location; backups include this CSV.
             File report=null;
             try{
                 report=File.createTempFile("stabilization-"+file.getName().replace(".mp4","")+"-",".csv",file.getParentFile());
                 try(PrintWriter writer=new PrintWriter(new OutputStreamWriter(new FileOutputStream(report),java.nio.charset.StandardCharsets.UTF_8))){
-                    writer.println("time_us,segment,path_x,path_y,path_angle,correction_x,correction_y,correction_angle,width,height,zoom");
-                    for(int i=0;i<times.length;i++){float[] path=paths.get(i);writer.printf(Locale.ROOT,"%d,%d,%.6f,%.6f,%.8f,%.6f,%.6f,%.8f,%d,%d,%.3f%n",times[i],segments[i],path[0],path[1],path[2],correction[i][0],correction[i][1],correction[i][2],aw,ah,StabilizationPath.zoom(strength));}
+                    writer.println("engine,time_us,segment,path_x,path_y,path_angle,correction_x,correction_y,correction_angle,width,height,zoom");
+                    for(int i=0;i<times.length;i++){float[] path=paths.get(i);writer.printf(Locale.ROOT,"%s,%d,%d,%.6f,%.6f,%.8f,%.6f,%.6f,%.8f,%d,%d,%.3f%n",road?"road-adaptive-v1":"classic",times[i],segments[i],path[0],path[1],path[2],correction[i][0],correction[i][1],correction[i][2],aw,ah,StabilizationPath.zoom(strength));}
                     if(writer.checkError())throw new IOException("Motion report unavailable");
                 }
             }catch(Exception error){if(report!=null)report.delete();android.util.Log.w("DashStabilizer","Motion report unavailable");}
@@ -108,6 +111,13 @@ class VideoStabilizer implements MatrixTransformation {
         Mat result=new Mat();try{Imgproc.resize(source,result,new Size(width,height),0,0,Imgproc.INTER_AREA);}finally{source.release();}
         if(rotation==90||rotation==180||rotation==270){Mat upright=new Mat();Core.rotate(result,upright,rotation==90?Core.ROTATE_90_CLOCKWISE:rotation==180?Core.ROTATE_180:Core.ROTATE_90_COUNTERCLOCKWISE);result.release();return upright;}
         return result;
+    }
+    static float[] roadMotion(Mat previous,Mat current){
+        // Keep a reliable established match. Distributed road features are a recovery pass,
+        // not a competing pose estimate that can change coordinate conventions every frame.
+        float[] established=motion(previous,current);if(established!=null)return established;
+        float[] road=RoadTracker.motion(previous,current);
+        return road!=null&&Math.abs(road[2])<=.04&&Math.hypot(road[0],road[1])<=Math.min(previous.cols(),previous.rows())*.04?road:null;
     }
     static float[] motion(Mat previous,Mat current){
         Mat mask=Mat.zeros(previous.rows(),previous.cols(),CvType.CV_8UC1);MatOfPoint corners=new MatOfPoint();MatOfPoint2f points=new MatOfPoint2f(),next=new MatOfPoint2f();MatOfPoint2f back=new MatOfPoint2f();MatOfByte status=new MatOfByte(),backStatus=new MatOfByte();MatOfFloat errors=new MatOfFloat(),backErrors=new MatOfFloat();Mat affine=null,inliers=new Mat();

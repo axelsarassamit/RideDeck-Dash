@@ -2,11 +2,17 @@
 
 A separate Android dashcam for RideDeck and RideDeck for Yamaha. Package: com.axelsarassamit.ridedeck.dash.
 
-## Social timeline editor: 0.10.1
+## Current editor and stabilization: 0.13.0
+
+The Gallery-style editor has a proportion-correct preview, center-playhead timeline, true splitting, merge/batch export, front-camera PiP, overlays, saved drafts and multi-select draft deletion. Projects support up to 30 clips and two hours in total. Editing and export work on battery; recording retains its five-minute charger grace and 30% unplugged minimum.
+
+Road adaptive stabilization smooths the whole selected trajectory with a fixed crop and conservative recovery of weak road matches. Classic image and Hybrid lab remain selectable. Live capture stays lightweight. Night blur and severe rolling-shutter distortion remain limitations. See [release notes](docs/RELEASE_NOTES.md) and [validation](docs/ROAD_ADAPTIVE_0.13.0.md).
+
+## Earlier social timeline editor: 0.10.1
 
 One editor replaces the old single-clip and overlay-export screens. Current Canva artwork appears in overlays as well as the app. Playback and timeline seeking use the updated media engine, with a brief fresh-compositor refresh for PiP jumps and cuts. It provides a large preview, thumbnail timeline, draggable trims, split/duplicate/reorder/remove, crop and social formats, movable front-camera PiP, configurable ride overlays, timed title text, music/volume/fades, colour adjustments and integrated experimental stabilization. Undo/redo and app-private saved drafts preserve non-destructive edits. Export selected recordings separately or merge up to 30 sections and 30 minutes. Preview and export share the recipe. Recording thumbnails, persistent sorting and camera/protection filters make the library easier to browse.
 
-Originals stay untouched. Drafts reference source media and are not backups. Heavy editing/export retains charger-or-50% reserve and capture priority. The existing recording policy is unchanged. A date/time-filtered local backup still copies complete originals and ride CSVs with a manifest.
+Originals stay untouched. Drafts reference source media and are not backups. Editing and export work on battery while retaining capture priority. The existing recording policy is unchanged. A date/time-filtered local backup still copies complete originals and ride CSVs with a manifest.
 
 Rear distant focus no longer silently falls back to continuous autofocus when manual locking is unavailable. Capture requests fixed 1x zoom and disables autoframing where supported. Capture logs now sample applied focus, focal length, zoom, exposure/frame timing and thermal status alongside cadence diagnostics. Rear-priority dual capture and native preview throttling remain in place.
 

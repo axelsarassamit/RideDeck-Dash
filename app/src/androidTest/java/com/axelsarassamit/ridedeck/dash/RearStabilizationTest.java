@@ -25,9 +25,13 @@ public class RearStabilizationTest {
         SocialProject p=SocialProject.load(c,SocialProject.selection(Collections.singletonList(source.getPath())));
         p.clips.get(0).fromMs=Long.parseLong(args.getString("startMs","40000"));
         p.clips.get(0).toMs=p.clips.get(0).fromMs+Long.parseLong(args.getString("durationMs","20000"));
-        Map<String,Object> settings=new HashMap<>();settings.put("social_ratio",3);settings.put("social_quality",720);settings.put("social_bitrate",8);settings.put("social_overlay",0);settings.put("overlay_roads",0);settings.put("studio_stabilize",Integer.parseInt(args.getString("strength","3")));
+        Map<String,Object> settings=new HashMap<>();settings.put("social_ratio",Integer.parseInt(args.getString("ratio","3")));settings.put("social_quality",720);settings.put("social_bitrate",8);settings.put("social_overlay",0);settings.put("overlay_roads",0);settings.put("studio_road",Integer.parseInt(args.getString("roadMode","1")));settings.put("studio_stabilize",Integer.parseInt(args.getString("strength","3")));
         SocialComposition.Built built=SocialComposition.build(c,p,new DashSettings(c,settings),true,()->false);
         File folder=c.getExternalFilesDir("rear-audit");assertNotNull(folder);assertTrue(folder.isDirectory()||folder.mkdirs());File output=new File(folder,label+".mp4");assertFalse("Use a fresh label",output.exists());
+        // Copy the exact most recent local audit for this source alongside opt-in comparisons.
+        File[] reports=source.getParentFile().listFiles((d,n)->n.startsWith("stabilization-"+name.replace(".mp4","")+"-")&&n.endsWith(".csv"));
+        if(reports!=null&&reports.length>0){Arrays.sort(reports,Comparator.comparingLong(File::lastModified).reversed());try(InputStream in=new FileInputStream(reports[0])){java.nio.file.Files.copy(in,new File(folder,label+".csv").toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING);}}
+        if("1".equals(args.getString("auditOnly")))return;
         CountDownLatch done=new CountDownLatch(1);Throwable[] error={null};Transformer[] transformer={null};
         InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{transformer[0]=new Transformer.Builder(c).setPortraitEncodingEnabled(true).setVideoMimeType(MimeTypes.VIDEO_H264).setAudioMimeType(MimeTypes.AUDIO_AAC).addListener(new Transformer.Listener(){
             @Override public void onCompleted(Composition composition,ExportResult result){android.util.Log.i("DashRoadAudit","frames="+result.videoFrameCount+" durationMs="+result.durationMs);done.countDown();}

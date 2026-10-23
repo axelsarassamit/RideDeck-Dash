@@ -1,4 +1,10 @@
-# RideDeck Dash 0.12.3
+# RideDeck Dash 0.13.0
+
+The editor offers Road adaptive stabilization, Classic image and the existing Hybrid lab. When image stabilization is enabled, Road adaptive is the default engine; stabilization itself remains off for a new edit until selected. Road adaptive optimizes the complete selected trajectory with time-aware acceleration smoothing, preserving steady pans and lean. A conservative recovery pass balances features across the upper road scene when the established tracker has no reliable match. The crop stays fixed at the selected strength, with smoothly limited correction near its bounds and fades around tracking breaks. Preview and export share the same correction.
+
+Original video frames and audio are retained; live recording stays lightweight with the existing native stabilization. Classic remains available for comparison, particularly for low-light footage. Neither engine recovers missing exposures, vibration blur or severe rolling-shutter distortion. See [the validation notes](ROAD_ADAPTIVE_0.13.0.md).
+
+## Earlier 0.12.3 features
 
 Saved edits now offer Delete drafts from both the library and the editor. Select individual drafts, several drafts or Select all, then confirm deletion. Only saved edit recipes are removed; source recordings and exported videos are preserved. Deleting the currently open edit closes it and prevents automatic saving from recreating it.
 
