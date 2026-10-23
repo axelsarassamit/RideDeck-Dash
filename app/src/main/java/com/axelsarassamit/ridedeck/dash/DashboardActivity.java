@@ -39,12 +39,12 @@ public final class DashboardActivity extends Activity {
   start=DashUi.button(this,actions,"Record",v->{if(RecordingService.running){motionConsumed=true;consumedSession=DashBridgeProvider.SESSIONS.generation();command("STOP");}else request(true);});
   Button stop=DashUi.button(this,actions,"Stop",v->{motionConsumed=true;consumedSession=DashBridgeProvider.SESSIONS.generation();command("STOP");});
   protect=DashUi.button(this,actions,"Protect",v->command("PROTECT"));
-  for(Button button:new Button[]{start,stop,protect}){LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(56),1);lp.setMargins(dp(3),dp(4),dp(3),0);button.setLayoutParams(lp);button.setTextSize(13);button.setPadding(dp(3),0,dp(3),0);button.setTextColor(android.graphics.Color.WHITE);button.setBackground(RideStyle.surface(this,0xff0665db,8,false));}
+  for(Button button:new Button[]{start,stop,protect}){button.setGravity(Gravity.CENTER);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(56),1);lp.setMargins(dp(3),dp(4),dp(3),0);button.setLayoutParams(lp);button.setTextSize(13);button.setPadding(dp(3),0,dp(3),0);button.setTextColor(android.graphics.Color.WHITE);button.setBackground(RideStyle.surface(this,0xff0665db,8,false));}
   stopAction=stop;stop.setContentDescription("Stop recording");
   LinearLayout footer=new LinearLayout(this);controls.addView(footer,new LinearLayout.LayoutParams(-1,dp(56)));
   Button recordings=DashUi.button(this,footer,"Recordings",v->startActivity(new Intent(this,ClipsActivity.class)));
   Button settingsButton=DashUi.button(this,footer,"Setup",v->menu());
-  for(Button button:new Button[]{recordings,settingsButton}){button.setLayoutParams(new LinearLayout.LayoutParams(0,dp(56),1));button.setTextSize(13);button.setBackgroundColor(android.graphics.Color.TRANSPARENT);}
+  for(Button button:new Button[]{recordings,settingsButton}){button.setGravity(Gravity.CENTER);button.setLayoutParams(new LinearLayout.LayoutParams(0,dp(56),1));button.setTextSize(13);button.setBackgroundColor(android.graphics.Color.TRANSPARENT);}
   StartupReveal.show(this,b,"Dash",RideStyle.BACKGROUND,AppearancePalette.accent(RideAppearance.accentIndex(this),RideAppearance.isDark(this)),RideStyle.TEXT,()->RecordingService.running || getSystemService(android.media.AudioManager.class).getMode()!=android.media.AudioManager.MODE_NORMAL);
 
   details=new TextView(this);

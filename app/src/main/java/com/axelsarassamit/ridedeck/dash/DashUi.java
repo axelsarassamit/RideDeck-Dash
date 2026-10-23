@@ -31,12 +31,7 @@ final class DashUi {
         b.setGravity(android.view.Gravity.CENTER);b.setPadding(pad,pad,pad,pad);b.setTextSize(12);b.setMaxLines(2);
     }
     static Button button(Activity a, LinearLayout p, String label, View.OnClickListener action) {
-        Button b = new Button(a); b.setText(label); b.setAllCaps(false); b.setTextSize(16); b.setTypeface(android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.NORMAL));
-        float density=a.getResources().getDisplayMetrics().density;
-        b.setMinHeight((int)(56*density));b.setPadding(dp(a,16),dp(a,8),dp(a,16),dp(a,8));
-        android.graphics.drawable.GradientDrawable background=new android.graphics.drawable.GradientDrawable();
-        background.setColor(RideStyle.RAISED);background.setCornerRadius(14*density);background.setStroke((int)density,RideStyle.LINE);b.setBackgroundTintList(null); b.setBackground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x286c94ff),background,null));
-        b.setTextColor(new android.content.res.ColorStateList(new int[][]{new int[]{-android.R.attr.state_enabled},new int[]{}},new int[]{Color.rgb(100,117,130),RideStyle.TEXT}));
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(4,(int)(4*density),4,(int)(6*density));p.addView(b,lp);b.setOnClickListener(action);return b;
+        Button b = new Button(a); b.setText(label); RideStyle.action(b,true);
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,0,0,dp(a,8));p.addView(b,lp);b.setOnClickListener(action);return b;
     }
 }
