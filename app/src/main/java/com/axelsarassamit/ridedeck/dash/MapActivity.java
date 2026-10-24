@@ -16,7 +16,9 @@ public final class MapActivity extends Activity {
     private WebView map;
     private TextView info;
     private final Handler ui=new Handler(Looper.getMainLooper());
-    private boolean loaded;
+    private boolean loaded,active,reading;
+    private final java.util.concurrent.ExecutorService trackWorker=java.util.concurrent.Executors.newSingleThreadExecutor();
+    private String trackJson="[]",trackPath="";private long trackSize=-1,trackModified=-1;
     private File ride;
     private final Runnable tick=new Runnable(){@Override public void run(){updateMap();ui.postDelayed(this,2000);}};
     @Override public void onCreate(Bundle b) {
@@ -57,14 +59,15 @@ public final class MapActivity extends Activity {
         else getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if(!loaded) return;
         File dir=ride!=null?ride:RecordingService.rideDirectory;
-        JSONArray points=new JSONArray();
-        if(dir!=null) try(BufferedReader reader=new BufferedReader(new FileReader(new File(dir,"route.csv")))){
-            String line;reader.readLine();int count=0;
-            while((line=reader.readLine())!=null && count++<50000){String[] fields=line.split(",");if(fields.length>=5)points.put(new JSONArray().put(Double.parseDouble(fields[2])).put(Double.parseDouble(fields[3])));}
-        }catch(Exception ignored){}
+        if(dir!=null&&!reading){File file=new File(dir,"route.csv");String path=file.getAbsolutePath();long size=file.length(),modified=file.lastModified();
+            if(!path.equals(trackPath)||size!=trackSize||modified!=trackModified){reading=true;
+                trackWorker.execute(()->{String json="[]";try{JSONArray points=new JSONArray();for(double[] point:RouteTrackReader.read(file))points.put(new JSONArray().put(point[0]).put(point[1]));json=points.toString();}catch(IOException|JSONException ignored){}final String result=json;
+                    ui.post(()->{reading=false;if(isDestroyed())return;trackPath=path;trackSize=size;trackModified=modified;trackJson=result;if(active)updateMap();});});
+            }
+        }
         Location p=ride==null?RecordingService.position:null;
         String current=p!=null?String.format(java.util.Locale.ROOT,"[%.8f,%.8f]",p.getLatitude(),p.getLongitude()):"null";
-        map.evaluateJavascript("update("+points+","+current+")",null);
+        map.evaluateJavascript("update("+trackJson+","+current+")",null);
     }
     private final class Destination {
         @JavascriptInterface public void destination(double lat,double lon){
@@ -105,7 +108,7 @@ public final class MapActivity extends Activity {
             lat+=values[0];lon+=values[1];result.put(new JSONArray().put(lat/1_000_000.0).put(lon/1_000_000.0));
         }
     }
-    @Override protected void onStart(){super.onStart();ui.post(tick);}
-    @Override protected void onStop(){ui.removeCallbacks(tick);super.onStop();}
-    @Override protected void onDestroy(){map.removeJavascriptInterface("Dash");map.destroy();super.onDestroy();}
+    @Override protected void onStart(){super.onStart();active=true;ui.post(tick);}
+    @Override protected void onStop(){active=false;ui.removeCallbacks(tick);super.onStop();}
+    @Override protected void onDestroy(){trackWorker.shutdownNow();map.removeJavascriptInterface("Dash");map.destroy();super.onDestroy();}
 }

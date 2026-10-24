@@ -88,10 +88,18 @@ public final class RecordingService extends Service {
         getSystemService(NotificationManager.class).createNotificationChannel(
             new NotificationChannel("recording", "Dash recording", NotificationManager.IMPORTANCE_LOW));
     }
+    /** A rejected foreground request still needs acknowledgement before teardown on Android. */
+    private void rejectStart(int id){
+        try{if(Build.VERSION.SDK_INT>=34)startForeground(1,notification("Recording request ended"),ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE);
+            else if(Build.VERSION.SDK_INT>=29)startForeground(1,notification("Recording request ended"),0);
+            else startForeground(1,notification("Recording request ended"));
+        }catch(RuntimeException error){android.util.Log.w("RideDeckDash","Rejected start acknowledgement denied",error);}
+        stopForeground(STOP_FOREGROUND_REMOVE);stopSelf(id);
+    }
     @Override public int onStartCommand(Intent intent, int flags, int id) {
         String action = intent == null ? "STOP" : intent.getAction();
-        if ("STOP".equals(action)) { DashboardActivity.motionConsumed=true;DashboardActivity.consumedSession=DashBridgeProvider.SESSIONS.generation(); worker.post(() -> finish("Recording stopped")); return START_NOT_STICKY; }
-        if ("PROTECT".equals(action)) { worker.post(this::protect); return START_NOT_STICKY; }
+        if ("STOP".equals(action)) { DashboardActivity.motionConsumed=true;DashboardActivity.consumedSession=DashBridgeProvider.SESSIONS.generation(); if(running)worker.post(() -> finish("Recording stopped"));else rejectStart(id); return START_NOT_STICKY; }
+        if ("PROTECT".equals(action)) { if(running&&!stopping) worker.post(this::protect); else rejectStart(id); return START_NOT_STICKY; }
         boolean companionStart = companionStartUntil > SystemClock.elapsedRealtime()
             && companionStartToken != null && intent != null
             && companionStartToken.equals(intent.getStringExtra("startToken"))
@@ -99,7 +107,7 @@ public final class RecordingService extends Service {
         companionStartUntil = 0;
         companionStartToken = null; companionStartOwner = null;
         if (running) return START_NOT_STICKY;
-        if (!DashApplication.isVisible() && !companionStart) { stopSelf(); return START_NOT_STICKY; }
+        if (!DashApplication.isVisible() && !companionStart) { rejectStart(id); return START_NOT_STICKY; }
         rotation = intent == null ? 0 : intent.getIntExtra("rotation", 0);
         String profile=intent==null?null:intent.getStringExtra("captureProfile");captureProfile="hybrid_sample".equals(profile)||"native_sample".equals(profile)?profile:"normal";
         sampleSeconds="normal".equals(captureProfile)?0:Math.max(0,Math.min(300,intent.getIntExtra("sampleSeconds",120)));
@@ -116,7 +124,7 @@ public final class RecordingService extends Service {
             else startForeground(1, notification("Starting cameras"));
         } catch (RuntimeException error) {
             state = "Android blocked recording. Keep RideDeck visible and try Start again."; stopping = true;
-            android.util.Log.w("RideDeckDash", "Foreground recording start denied", error); stopSelf(); return START_NOT_STICKY;
+            android.util.Log.w("RideDeckDash", "Foreground recording start denied", error); rejectStart(id); return START_NOT_STICKY;
         }
         running = true; stopping = false; state = "Starting cameras";
         capturing = false;

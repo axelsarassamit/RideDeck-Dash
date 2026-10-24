@@ -1,3 +1,9 @@
+# RideDeck Dash 0.13.2
+
+Audit fixes make rejected recording starts and stale notification actions shut down cleanly, preserve Record intent during permission rotation, and retain the selected microphone when loading saved settings. Invalid GPS readings no longer satisfy automatic movement detection. Long rides load map traces off the main thread using a bounded display snapshot. Live camera preview stays available outside the recording battery allowance. Dashboard actions restore consistent touch sizes, labels and icons.
+
+The recording/stabilization pipeline is unchanged. See [the audit report](APP_AUDIT_0.13.2.md) for evidence, validation limits and remaining work. Release uploads are deferred; this version is being validated locally with the permanent signing key.
+
 # RideDeck Dash 0.13.1
 
 Setup, Appearance and page actions now share the RideDeck family button styling, with consistent minimum touch size, text, corners and disabled colours. Setup navigation follows the same header and section controls as both companion apps. Recording transport and the timeline editor keep their purpose-specific layouts.
