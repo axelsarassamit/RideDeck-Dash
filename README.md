@@ -105,3 +105,16 @@ Dual camera workload defaults to Rear priority: the selected rear resolution and
 Recording camera requests now include the recorder surface on every frame and the preview surface only at the selected 2, 5 or 10 fps display cadence. Hidden previews use recorder-only requests. This avoids producing and discarding 30 preview images per second while video still targets 30 fps. Display conversion uses reusable NV21 and pixel arrays, one directly rotated bitmap, and four preview buffers. It no longer compresses and decodes JPEGs for local display. The full frame remains visible; companion preview sharing remains supported.
 
 Recording information groups both camera lines under Cameras and includes the current recording status. Recorder faults remain visible over the idle preview, and stop reasons are written to capture.csv and the local diagnostic log. Rear priority applies the front bitrate cap at either recording resolution. No synthesized or duplicated frames are inserted to conceal missing capture.
+
+## Licensing
+
+Original source code and original project materials are protected under
+[LICENSE](LICENSE). Official releases supplied with these terms may be used
+without a license fee for personal, noncommercial use under [EULA.md](EULA.md).
+Source reuse, redistribution and commercial or organizational application use
+require separate permission, except where another applicable license or law
+permits them.
+
+[Third-party notices](THIRD_PARTY_NOTICES.md) and bundled component licenses
+remain applicable. These terms do not revoke earlier grants or limit rights
+provided by third-party licenses.
