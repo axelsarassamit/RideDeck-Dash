@@ -1,3 +1,9 @@
+# RideDeck Dash 0.13.4
+
+Setup > Help & app > Bug report shows up to 30 local failure codes, newest first. The text includes the Dash version and fixed descriptions only. It excludes media, routes, paths, credentials, device identifiers and exception messages. Share or copy the reviewed text, or open a draft in the public RideDeck Dash GitHub repository. Longer reports can be copied into the draft. Dash never submits an issue.
+
+Workshop capture, sound checks, and evidence export start in Yamaha Bluetooth Lab. Regular Dash retains normal recording, camera settings, video exports, route export and backups of original clips and routes. Existing workshop recordings and evidence remain intact.
+
 # RideDeck Dash 0.13.2
 
 Audit fixes make rejected recording starts and stale notification actions shut down cleanly, preserve Record intent during permission rotation, and retain the selected microphone when loading saved settings. Invalid GPS readings no longer satisfy automatic movement detection. Long rides load map traces off the main thread using a bounded display snapshot. Live camera preview stays available outside the recording battery allowance. Dashboard actions restore consistent touch sizes, labels and icons.

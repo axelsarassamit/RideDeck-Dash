@@ -20,12 +20,12 @@ public final class RecordingBackupActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         LinearLayout page=DashUi.page(this);ScrollView scroll=new ScrollView(this);scroll.addView(page);setContentView(scroll);
         DashUi.text(this,page,"Back up recordings",26);
-        DashUi.text(this,page,"Copy complete originals that overlap this local time window, plus their ride logs. Originals stay in Dash. Copies may include footage before and after the selected times.",16);
+        DashUi.text(this,page,"Copy complete originals that overlap this local time window, plus their saved routes. Originals stay in Dash. Copies may include footage before and after the selected times.",16);
         day=input(page,"Date · yyyy-MM-dd",state==null?new SimpleDateFormat("yyyy-MM-dd",Locale.ROOT).format(new Date()):state.getString("day"));
         from=input(page,"From · HH:mm",state==null?"00:00":state.getString("from"));to=input(page,"Until · HH:mm",state==null?"23:59":state.getString("to"));
         rear=new CheckBox(this);rear.setText("Rear camera only");rear.setTextColor(RideStyle.TEXT);rear.setChecked(state==null||state.getBoolean("rear",true));page.addView(rear);
         status=DashUi.text(this,page,"Choose the window, then save a local copy.",16);
-        save=DashUi.button(this,page,"Save originals and logs",v->backup());
+        save=DashUi.button(this,page,"Save originals and routes",v->backup());
         DashUi.button(this,page,"Back / cancel",v->finish());
     }
     EditText input(LinearLayout page,String label,String value){DashUi.text(this,page,label,15);EditText field=new EditText(this);field.setSingleLine(true);field.setTextColor(RideStyle.TEXT);field.setText(value);page.addView(field);return field;}
@@ -53,11 +53,11 @@ public final class RecordingBackupActivity extends Activity {
             if(chosen.isEmpty())throw new IOException("No finalized clips overlap that window");
             if(getFilesDir().getUsableSpace()<bytes+256L*1024*1024)throw new IOException("Not enough phone space for complete copies");
             int done=0;for(File clip:chosen){copy(clip,folder,"Dash-"+clip.getParentFile().getName()+"-"+clip.getName(),"video/mp4");final int count=++done,total=chosen.size();runOnUiThread(()->status.setText("Copied "+count+" / "+total+" originals"));}
-            for(File ride:rides){File[] logs=ride.listFiles((dir,name)->name.endsWith(".csv")||name.equals("motion.json")||(name.startsWith("hybrid-")&&name.endsWith("-report.json")));if(logs!=null)for(File file:logs)copy(file,folder,"Dash-"+ride.getName()+"-"+file.getName(),file.getName().endsWith(".json")?"application/json":"text/csv");}
+            for(File ride:rides){File route=new File(ride,"route.csv");if(route.isFile())copy(route,folder,"Dash-"+ride.getName()+"-route.csv","text/csv");}
             JSONObject report=new JSONObject().put("start_ms",start).put("end_ms",end).put("timezone",TimeZone.getDefault().getID()).put("clips",manifest);
             write(folder,"manifest.json","application/json",new ByteArrayInputStream(report.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-            runOnUiThread(()->{if(!isDestroyed())status.setText("Backup saved: "+folder+"\n"+chosen.size()+" complete originals and ride logs. Originals kept.");});
-        }catch(Exception error){runOnUiThread(()->{if(!isDestroyed())status.setText("Backup stopped: "+error.getMessage()+". Completed copies are kept; no originals were removed.");});}
+            runOnUiThread(()->{if(!isDestroyed())status.setText("Backup saved: "+folder+"\n"+chosen.size()+" complete originals and available routes. Originals kept.");});
+        }catch(Exception error){if(!cancelled&&!RecordingService.running&&!RecordingService.finalizing&&power())FailureHistory.add(this,FailureHistory.Event.BACKUP_EXPORT);runOnUiThread(()->{if(!isDestroyed())status.setText("Backup stopped: "+error.getMessage()+". Completed copies are kept; no originals were removed.");});}
         finally{runOnUiThread(()->{if(!isDestroyed())save.setEnabled(true);});}},"DashOriginalBackup").start();
     }
     static long parse(SimpleDateFormat parser,String text)throws IOException{ParsePosition position=new ParsePosition(0);Date value=parser.parse(text,position);if(value==null||position.getIndex()!=text.length())throw new IOException("Invalid time");return value.getTime();}

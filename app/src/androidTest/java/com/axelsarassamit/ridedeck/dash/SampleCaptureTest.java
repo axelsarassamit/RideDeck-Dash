@@ -20,7 +20,8 @@ public class SampleCaptureTest {
         try{
             prefs.edit().putString("audio","off").putInt("autostart",0).putString("mode","dual").putInt("stabilization",1).commit();Map<String,?> normal=prefs.getAll();
             File ride;
-            try(ActivityScenario<DashboardActivity> scenario=ActivityScenario.launch(new Intent(c,DashboardActivity.class).putExtra("sampleProfile","hybrid_sample").putExtra("sampleSeconds",10))){
+            try(ActivityScenario<DashboardActivity> scenario=ActivityScenario.launch(DashboardActivity.class)){
+                scenario.onActivity(a->a.startWorkshopSample("hybrid_sample",10));
                 for(int i=0;i<150&&!RecordingService.capturing;i++)Thread.sleep(100);assertTrue("Sample must start: "+RecordingService.state,RecordingService.capturing);ride=RecordingService.rideDirectory;assertEquals("rear",RecordingService.captureMode);
                 for(int i=0;i<200&&(RecordingService.running||RecordingService.finalizing);i++)Thread.sleep(100);assertFalse(RecordingService.running||RecordingService.finalizing);assertEquals("Sample saved",RecordingService.state);
                 assertEquals("Session overrides must not replace normal preferences",normal,prefs.getAll());

@@ -30,7 +30,7 @@ public final class SocialExportActivity extends Activity {
             if(Build.VERSION.SDK_INT<29)throw new IOException("Gallery export requires Android 10 or newer");
             recipe=DashSettings.fromBundle(this,getIntent().getBundleExtra("recipe"));project=SocialProject.load(this,getIntent().getBundleExtra("project"));
             check();handler.post(tick);next();
-        }catch(Exception e){stop("Cannot export: "+e.getMessage());}
+        }catch(Exception e){fail(FailureHistory.Event.EXPORT_PREPARATION,"Cannot export: "+e.getMessage(),e);}
     }
     void next() {
         if(cancelled)return;
@@ -47,12 +47,12 @@ public final class SocialExportActivity extends Activity {
                         .setEncoderFactory(new DefaultEncoderFactory.Builder(this).setEnableFallback(false).setRequestedVideoEncoderSettings(new VideoEncoderSettings.Builder().setBitrate(recipe.number("social_bitrate",8)*1000000).build()).build())
                         .addListener(new Transformer.Listener(){
                             @Override public void onCompleted(Composition composition,ExportResult result){transformer=null;if(!cancelled)save(output,current);}
-                            @Override public void onError(Composition composition,ExportResult result,ExportException e){stop("Video "+(current+1)+" failed: "+e.getMessage());}
+                            @Override public void onError(Composition composition,ExportResult result,ExportException e){fail(FailureHistory.Event.EXPORT_RENDER,"Video "+(current+1)+" failed: "+e.getMessage(),e);}
                         }).build();
                     transformer.start(built.composition,output.getPath());
-                }catch(Exception e){stop("Export stopped: "+e.getMessage());}
+                }catch(Exception e){fail(FailureHistory.Event.EXPORT_RENDER,"Export stopped: "+e.getMessage(),e);}
             });
-        }catch(Exception e){runOnUiThread(()->{if(!cancelled)stop("Export stopped: "+e.getMessage());});}},"DashSocialExportPrepare").start();
+        }catch(Exception e){runOnUiThread(()->{fail(FailureHistory.Event.EXPORT_PREPARATION,"Export stopped: "+e.getMessage(),e);});}},"DashSocialExportPrepare").start();
     }
     void save(File rendered,int current) {
         progress.setText("Saving video "+(current+1));
@@ -68,12 +68,12 @@ public final class SocialExportActivity extends Activity {
             final Uri uri=target;
             // Publication and lifecycle cancellation are serialized on the activity's main thread.
             runOnUiThread(()->{try{
-                check();if(isFinishing()||isDestroyed()||current!=job)throw new IOException("Export cancelled");
+                check();if(isFinishing()||isDestroyed()||current!=job)throw new ExportBlocked("Export cancelled");
                 ContentValues done=new ContentValues();done.put(MediaStore.Video.Media.IS_PENDING,0);
                 if(getContentResolver().update(uri,done,null,null)<=0)throw new IOException("Could not finish gallery copy");
                 saved.add(uri);showShare();job++;next();
-            }catch(Exception e){getContentResolver().delete(uri,null,null);if(!cancelled)stop("Saving stopped: "+e.getMessage());}});
-        }catch(Exception e){if(target!=null)getContentResolver().delete(target,null,null);runOnUiThread(()->{if(!cancelled)stop("Saving stopped: "+e.getMessage());});}
+            }catch(Exception e){getContentResolver().delete(uri,null,null);fail(FailureHistory.Event.EXPORT_SAVE,"Saving stopped: "+e.getMessage(),e);}});
+        }catch(Exception e){if(target!=null)getContentResolver().delete(target,null,null);runOnUiThread(()->{fail(FailureHistory.Event.EXPORT_SAVE,"Saving stopped: "+e.getMessage(),e);});}
         finally{rendered.delete();}},"DashSocialGallery").start();
     }
     void showShare(){share.setVisibility(saved.isEmpty()?View.GONE:View.VISIBLE);}
@@ -84,9 +84,17 @@ public final class SocialExportActivity extends Activity {
         ClipData data=ClipData.newUri(getContentResolver(),"RideDeck social video",saved.get(0));for(int i=1;i<saved.size();i++)data.addItem(new ClipData.Item(saved.get(i)));intent.setClipData(data);
         startActivity(Intent.createChooser(intent,"Share social videos"));
     }
-    void check()throws IOException{if(cancelled)throw new IOException("Export cancelled");if(RecordingService.running||RecordingService.finalizing)throw new IOException("Stop recording before exporting");}
+    private static final class ExportBlocked extends IOException {
+        ExportBlocked(String message){super(message);}
+    }
+    void check()throws IOException{if(cancelled||isFinishing()||isDestroyed())throw new ExportBlocked("Export cancelled");if(RecordingService.running||RecordingService.finalizing)throw new ExportBlocked("Stop recording before exporting");}
+    private void fail(FailureHistory.Event event,String message,Exception error){
+        if(cancelled||isFinishing()||isDestroyed())return;
+        if(!(error instanceof ExportBlocked))FailureHistory.add(this,event);
+        stop(message);
+    }
     void stop(String message){cancelled=true;handler.removeCallbacksAndMessages(null);if(transformer!=null){transformer.cancel();transformer=null;}if(output!=null)output.delete();progress.setText(message+"\n"+saved.size()+" completed copies kept.");showShare();}
-    final Runnable tick=new Runnable(){public void run(){if(cancelled||completed)return;try{check();if(transformer!=null){ProgressHolder holder=new ProgressHolder();if(transformer.getProgress(holder)==Transformer.PROGRESS_STATE_AVAILABLE)progress.setText("Creating video "+(job+1)+" of "+(project.merge?1:project.clips.size())+" · "+holder.progress+"%");}handler.postDelayed(this,500);}catch(Exception e){stop("Export stopped: "+e.getMessage());}}};
+    final Runnable tick=new Runnable(){public void run(){if(cancelled||completed)return;try{check();if(transformer!=null){ProgressHolder holder=new ProgressHolder();if(transformer.getProgress(holder)==Transformer.PROGRESS_STATE_AVAILABLE)progress.setText("Creating video "+(job+1)+" of "+(project.merge?1:project.clips.size())+" · "+holder.progress+"%");}handler.postDelayed(this,500);}catch(Exception e){fail(FailureHistory.Event.EXPORT_RENDER,"Export stopped: "+e.getMessage(),e);}}};
     @Override protected void onSaveInstanceState(Bundle b){ArrayList<String> uris=new ArrayList<>();for(Uri uri:saved)uris.add(uri.toString());b.putStringArrayList("saved",uris);super.onSaveInstanceState(b);}
     @Override protected void onStop(){if(!completed){android.util.Log.i("DashSocialExport","Export stopped; changingConfiguration="+isChangingConfigurations()+" finishing="+isFinishing());stop("Export cancelled");}super.onStop();}
     @Override protected void onDestroy(){if(!completed){cancelled=true;if(transformer!=null)transformer.cancel();if(output!=null)output.delete();}handler.removeCallbacksAndMessages(null);super.onDestroy();}

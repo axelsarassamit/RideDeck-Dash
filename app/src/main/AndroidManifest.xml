@@ -19,6 +19,7 @@
         <package android:name="com.axelsarassamit.gx12.yamaha" />
     </queries>
     <application android:name=".DashApplication" android:label="RideDeck Dash" android:icon="@mipmap/velocity_launcher" android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:usesCleartextTraffic="false" android:theme="@style/RideDeckTheme">
+        <activity android:name=".BugReportActivity" android:exported="false" />
         <activity android:name=".AppearanceActivity" android:exported="false" />
         <activity android:name=".DashLabActivity" android:exported="true" />
         <activity android:name=".CalibrationActivity" android:exported="false" />

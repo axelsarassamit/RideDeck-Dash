@@ -3,9 +3,13 @@ import android.Manifest;import android.app.*;import android.content.*;import and
 public final class DashboardActivity extends Activity {
  String sampleProfile;int sampleSeconds;boolean sampleStarted;
  @Override protected void onPostResume(){super.onPostResume();String profile=getIntent().getStringExtra("sampleProfile");if(profile==null)return;getIntent().removeExtra("sampleProfile");
+  if(!new ComponentName(this,DashLabActivity.class).equals(getCallingActivity()))return;
+  startWorkshopSample(profile,getIntent().getIntExtra("sampleSeconds",120));
+ }
+ void startWorkshopSample(String profile,int seconds){
   if(!getPackageName().equals(getCallingPackage()))return;
   if(!profile.equals("hybrid_sample")&&!profile.equals("native_sample"))return;if(RecordingService.running||RecordingService.finalizing){Toast.makeText(this,"Stop recording first",Toast.LENGTH_LONG).show();return;}
-  sampleProfile=profile;sampleSeconds=getIntent().getIntExtra("sampleSeconds",120);mode="rear";autoView=false;request(true);
+  sampleProfile=profile;sampleSeconds=seconds;mode="rear";autoView=false;request(true);
  }
  TextView status,speed,details,viewLabel,gpsCard,stabilizationCard;Button start,protect,stopAction;ImageView rear,front;DashSettings settings;AlignmentPreview alignment;
  LocationManager idleLocations;Location idlePosition;static boolean motionConsumed;static long consumedSession;final DriveAutomation drive=new DriveAutomation();
@@ -66,8 +70,9 @@ public final class DashboardActivity extends Activity {
   menuItem(audio,"Microphones and audio",dialog,()->settingsSection("audio"));
   LinearLayout power=setupMenu.add("power","General","Background & power","Battery limits and ride automation");
   menuItem(power,"Drive automation and battery limits",dialog,()->settingsSection("automation"));
-  LinearLayout help=setupMenu.add("help","General","Help & app","Permissions, camera capabilities and updates");
+  LinearLayout help=setupMenu.add("help","General","Help & app","Permissions, camera capabilities, updates and bug reports");
   menuItem(help,"Updates and camera capabilities",dialog,()->startActivity(new Intent(this,CapabilityActivity.class)));menuItem(help,"Recording information",dialog,this::information);
+  menuItem(help,"Bug report",dialog,()->startActivity(new Intent(this,BugReportActivity.class)));
   LinearLayout video=setupMenu.add("recording","Ride","Recording","Camera selection, quality, presets and storage");
   menuItem(video,"Video and storage",dialog,()->settingsSection("video"));
   menuItem(video,"Camera selection",dialog,()->{dialog.dismiss();if(RecordingService.running){Toast.makeText(this,"Stop recording to change cameras",Toast.LENGTH_LONG).show();return;}new AlertDialog.Builder(this).setTitle("Cameras").setSingleChoiceItems(new String[]{"Rear + front","Rear only","Front only"},"dual".equals(mode)?0:"rear".equals(mode)?1:2,(d,n)->{mode=new String[]{"dual","rear","front"}[n];settings.put("mode",mode);closeAlignment(null);d.dismiss();}).setNegativeButton("Cancel",null).show();});
@@ -130,7 +135,7 @@ public final class DashboardActivity extends Activity {
  public void onRequestPermissionsResult(int r,String[] p,int[] g){super.onRequestPermissionsResult(r,p,g);if(r!=17)return;permissionRequestPending=false;if(checkSelfPermission(Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED){pendingRecord=false;return;}if(pendingRecord&&!"off".equals(settings.text("audio","off"))&&checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){pendingRecord=false;Toast.makeText(this,"Choose Audio off or allow microphone recording",Toast.LENGTH_LONG).show();return;}ready();}
  void ready(){if(!visible||permissionRequestPending||starting||closingView)return;if(!pendingRecord&&alignment!=null)return;if(pendingRecord){starting=true;closeAlignment(this::begin);}else{PreviewFrames.rear=null;PreviewFrames.front=null;PreviewFrames.message="Opening cameras";alignment=new AlignmentPreview(this);alignment.start(mode);}}
  void closeAlignment(Runnable after){AlignmentPreview old=alignment;alignment=null;if(old!=null){closingView=true;old.close(()->{closingView=false;if(after!=null)after.run();});}else if(after!=null)after.run();}
- void begin(){if(!visible||RecordingService.finalizing){starting=false;return;}pendingRecord=false;PreviewFrames.rear=null;PreviewFrames.front=null;Intent i=new Intent(this,RecordingService.class).setAction("START").putExtra("mode",mode).putExtra("rotation",getWindowManager().getDefaultDisplay().getRotation());try{if(sampleProfile!=null){i.putExtra("captureProfile",sampleProfile).putExtra("sampleSeconds",sampleSeconds);sampleProfile=null;sampleStarted=true;}startForegroundService(i);ui.postDelayed(()->starting=false,1000);}catch(Exception e){starting=false;Toast.makeText(this,e.getMessage(),Toast.LENGTH_LONG).show();}}
+ void begin(){if(!visible||RecordingService.finalizing){starting=false;return;}pendingRecord=false;PreviewFrames.rear=null;PreviewFrames.front=null;Intent i=new Intent(this,RecordingService.class).setAction("START").putExtra("mode",mode).putExtra("rotation",getWindowManager().getDefaultDisplay().getRotation());try{if(sampleProfile!=null){i.putExtra("captureProfile",sampleProfile).putExtra("sampleSeconds",sampleSeconds);sampleProfile=null;sampleStarted=true;}startForegroundService(i);ui.postDelayed(()->starting=false,1000);}catch(Exception e){starting=false;FailureHistory.add(this,FailureHistory.Event.RECORDING_START);Toast.makeText(this,e.getMessage(),Toast.LENGTH_LONG).show();}}
  void command(String action){if(RecordingService.running)startService(new Intent(this,RecordingService.class).setAction(action));}
  protected void onStart(){super.onStart();if(!RecordingService.running&&!pendingRecord&&sampleProfile==null)mode=settings.text("mode","dual");visible=true;PreviewFrames.enabled=true;ui.post(refresh);}
  protected void onDestroy(){if(setupDialog!=null)setupDialog.dismiss();super.onDestroy();}

@@ -107,7 +107,7 @@ public final class RecordingService extends Service {
         companionStartUntil = 0;
         companionStartToken = null; companionStartOwner = null;
         if (running) return START_NOT_STICKY;
-        if (!DashApplication.isVisible() && !companionStart) { rejectStart(id); return START_NOT_STICKY; }
+        if (!DashApplication.isVisible() && !companionStart) { FailureHistory.add(this,FailureHistory.Event.RECORDING_START); rejectStart(id); return START_NOT_STICKY; }
         rotation = intent == null ? 0 : intent.getIntExtra("rotation", 0);
         String profile=intent==null?null:intent.getStringExtra("captureProfile");captureProfile="hybrid_sample".equals(profile)||"native_sample".equals(profile)?profile:"normal";
         sampleSeconds="normal".equals(captureProfile)?0:Math.max(0,Math.min(300,intent.getIntExtra("sampleSeconds",120)));
@@ -123,6 +123,7 @@ public final class RecordingService extends Service {
             if (Build.VERSION.SDK_INT >= 29 && types != 0) startForeground(1, notification("Starting cameras"), types);
             else startForeground(1, notification("Starting cameras"));
         } catch (RuntimeException error) {
+            FailureHistory.add(this,FailureHistory.Event.RECORDING_START);
             state = "Android blocked recording. Keep RideDeck visible and try Start again."; stopping = true;
             android.util.Log.w("RideDeckDash", "Foreground recording start denied", error); rejectStart(id); return START_NOT_STICKY;
         }
@@ -221,7 +222,10 @@ public final class RecordingService extends Service {
             getSystemService(NotificationManager.class).notify(1, notification(state));
         } catch (IOException error) { fail("Cannot protect clip"); }
     }
-    private void fail(String message) { finish("Stopped: " + (message == null ? "camera error" : message)); }
+    private void fail(String message) {
+        if(running&&!stopping) FailureHistory.add(this,capturing
+            ? FailureHistory.Event.RECORDING_INTERRUPTED : FailureHistory.Event.RECORDING_START);
+        finish("Stopped: " + (message == null ? "camera error" : message)); }
     private void finish(String reason) {
         if (stopping) return;
         stopping = true; finalizing=true; state = "Saving clips";
@@ -469,7 +473,7 @@ public final class RecordingService extends Service {
         void close() {
             // Keep camera frames flowing until the recorder drains and finalizes its MP4.
             if (recorder != null) {
-                if (recording) try { recorder.stop(); ClipStore.mark(current, ".ready"); event("file_finalized", current, null); } catch (Exception ignored) { /* Retain unverified output, never label it complete. */ }
+                if (recording) try { recorder.stop(); ClipStore.mark(current, ".ready"); event("file_finalized", current, null); } catch (Exception ignored) { FailureHistory.add(RecordingService.this,FailureHistory.Event.CLIP_FINALIZATION); /* Retain unverified output. */ }
                 recorder.release();
             }
             if (session != null) { try { session.stopRepeating(); session.abortCaptures(); } catch (Exception ignored) {} session.close(); }

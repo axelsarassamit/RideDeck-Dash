@@ -71,7 +71,7 @@ public final class ClipsActivity extends Activity {
             ImageView thumbnail=new ImageView(this);thumbnail.setContentDescription("Thumbnail "+file.getName());thumbnail.setScaleType(ImageView.ScaleType.CENTER_CROP);DashUi.card(thumbnail,RideStyle.RAISED,8);thumbnail.setClipToOutline(true);mediaRow.addView(thumbnail,new LinearLayout.LayoutParams(DashUi.dp(this,96),DashUi.dp(this,72)));thumbnails.bind(thumbnail,file);
             if(selecting){CheckBox box=new CheckBox(this);box.setText(label);box.setTextColor(RideStyle.TEXT);box.setTextSize(16);box.setPadding(12,20,12,20);box.setMinHeight((int)(72*getResources().getDisplayMetrics().density));box.setChecked(selected.contains(file.getPath()));box.setOnCheckedChangeListener((button,on)->{if(on)selected.add(file.getPath());else selected.remove(file.getPath());updateSelection(allFiles);});mediaRow.addView(box,new LinearLayout.LayoutParams(0,-2,1));thumbnail.setOnClickListener(v->box.toggle());continue;}
             if(getIntent().getBooleanExtra("socialPick",false)){Button pick=DashUi.button(this,mediaRow,label,v->openStudio(Collections.singletonList(file.getPath())));pick.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));continue;}
-            Button clipButton=DashUi.button(this,mediaRow,label,v -> new AlertDialog.Builder(this).setTitle(file.getName()).setItems(new String[]{"Play","Share video","Save to gallery","Edit video","Save ride data","Show ride map",ClipStore.protectedClip(file)?"Allow loop recycling":"Keep clip","Delete clip"},(dialog,item) -> {
+            Button clipButton=DashUi.button(this,mediaRow,label,v -> new AlertDialog.Builder(this).setTitle(file.getName()).setItems(new String[]{"Play","Share video","Save to gallery","Edit video","Save ride route","Show ride map",ClipStore.protectedClip(file)?"Allow loop recycling":"Keep clip","Delete clip"},(dialog,item) -> {
                 if(item==0) play(file);
                 else if(item==1) {
                     if(!ClipStore.finalized(file)) { Toast.makeText(this,"Stop recording before sharing this clip",Toast.LENGTH_LONG).show(); return; }
@@ -122,27 +122,7 @@ public final class ClipsActivity extends Activity {
         }).show();
     }
     private void exportData(File ride) {
-        if(RecordingService.running) { Toast.makeText(this,"Stop recording before exporting ride data",Toast.LENGTH_LONG).show(); return; }
-        if(Build.VERSION.SDK_INT<29) { Toast.makeText(this,"Ride data export requires Android 10 or newer",Toast.LENGTH_LONG).show(); return; }
-        new Thread(() -> {
-            try {
-                File[] evidence=ride.listFiles((dir,name)->name.endsWith(".csv")||name.equals("motion.json")||(name.startsWith("hybrid-")&&name.endsWith("-report.json")));if(evidence==null)throw new java.io.IOException("Ride data unavailable");
-                for(File file:evidence) {
-                    String name=file.getName();if(!file.isFile())continue;
-                    ContentValues values=new ContentValues();values.put(MediaStore.MediaColumns.DISPLAY_NAME,"Dash-"+ride.getName()+"-"+name);
-                    values.put(MediaStore.MediaColumns.MIME_TYPE,name.endsWith(".json")?"application/json":"text/csv");values.put(MediaStore.MediaColumns.RELATIVE_PATH,"Download/RideDeckDash");values.put(MediaStore.MediaColumns.IS_PENDING,1);
-                    Uri target=getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,values);
-                    if(target==null)throw new java.io.IOException("Downloads unavailable");
-                    try {
-                        try(InputStream in=new FileInputStream(file);OutputStream out=getContentResolver().openOutputStream(target)) {
-                            if(out==null)throw new java.io.IOException("Downloads unavailable");byte[] data=new byte[8192];int n;while((n=in.read(data))!=-1)out.write(data,0,n);
-                        }
-                        values.clear();values.put(MediaStore.MediaColumns.IS_PENDING,0);getContentResolver().update(target,values,null,null);
-                    } catch(Exception error) {getContentResolver().delete(target,null,null);throw error;}
-                }
-                runOnUiThread(()->Toast.makeText(this,"Ride data saved in Downloads / RideDeckDash",Toast.LENGTH_LONG).show());
-            }catch(Exception error){runOnUiThread(()->Toast.makeText(this,"Ride data export failed",Toast.LENGTH_LONG).show());}
-        },"DashDataExport").start();
+        RideDataExport.save(this,ride,false);
     }
     private void export(File file) {
         if(!ClipStore.finalized(file)) { Toast.makeText(this,"Stop recording before exporting this clip",Toast.LENGTH_LONG).show(); return; }
@@ -161,6 +141,7 @@ public final class ClipsActivity extends Activity {
                 runOnUiThread(()->Toast.makeText(this,"Saved in Movies / RideDeckDash",Toast.LENGTH_LONG).show());
             } catch(Exception error) {
                 if(target!=null)getContentResolver().delete(target,null,null);
+                FailureHistory.add(this,FailureHistory.Event.EXPORT_SAVE);
                 runOnUiThread(()->Toast.makeText(this,"Could not export clip",Toast.LENGTH_LONG).show());
             }
         },"DashExport").start();
