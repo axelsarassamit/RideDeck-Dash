@@ -3,6 +3,7 @@ import android.Manifest;import android.app.*;import android.content.*;import and
 public final class DashboardActivity extends Activity {
  String sampleProfile;int sampleSeconds;boolean sampleStarted;
  @Override protected void onPostResume(){super.onPostResume();String profile=getIntent().getStringExtra("sampleProfile");if(profile==null)return;getIntent().removeExtra("sampleProfile");
+  if(!getPackageName().equals(getCallingPackage()))return;
   if(!profile.equals("hybrid_sample")&&!profile.equals("native_sample"))return;if(RecordingService.running||RecordingService.finalizing){Toast.makeText(this,"Stop recording first",Toast.LENGTH_LONG).show();return;}
   sampleProfile=profile;sampleSeconds=getIntent().getIntExtra("sampleSeconds",120);mode="rear";autoView=false;request(true);
  }
@@ -61,15 +62,14 @@ public final class DashboardActivity extends Activity {
   setupMenu=new SetupMenu(this,"RideDeck Dash",AppearancePalette.accent(RideAppearance.accentIndex(this),RideAppearance.isDark(this)),false,setupState,dialog::dismiss);
   LinearLayout screen=setupMenu.add("screen","General","Screen & layout","Light or dark, colours and shared appearance");
   menuItem(screen,"Appearance and colour theme",dialog,()->startActivity(new Intent(this,AppearanceActivity.class)));
-  LinearLayout audio=setupMenu.add("audio","General","Headset & sound","Microphone, audio input and sound check");
-  menuItem(audio,"Microphones and audio",dialog,()->settingsSection("audio"));menuItem(audio,"Sound check",dialog,()->startActivity(new Intent(this,AudioCheckActivity.class)));
+  LinearLayout audio=setupMenu.add("audio","General","Headset & sound","Microphone and audio input");
+  menuItem(audio,"Microphones and audio",dialog,()->settingsSection("audio"));
   LinearLayout power=setupMenu.add("power","General","Background & power","Battery limits and ride automation");
   menuItem(power,"Drive automation and battery limits",dialog,()->settingsSection("automation"));
   LinearLayout help=setupMenu.add("help","General","Help & app","Permissions, camera capabilities and updates");
   menuItem(help,"Updates and camera capabilities",dialog,()->startActivity(new Intent(this,CapabilityActivity.class)));menuItem(help,"Recording information",dialog,this::information);
   LinearLayout video=setupMenu.add("recording","Ride","Recording","Camera selection, quality, presets and storage");
   menuItem(video,"Video and storage",dialog,()->settingsSection("video"));
-  menuItem(video,"Calibration and sample recordings",dialog,()->{dialog.dismiss();closeAlignment(null);startActivity(new Intent(this,CalibrationActivity.class));});
   menuItem(video,"Camera selection",dialog,()->{dialog.dismiss();if(RecordingService.running){Toast.makeText(this,"Stop recording to change cameras",Toast.LENGTH_LONG).show();return;}new AlertDialog.Builder(this).setTitle("Cameras").setSingleChoiceItems(new String[]{"Rear + front","Rear only","Front only"},"dual".equals(mode)?0:"rear".equals(mode)?1:2,(d,n)->{mode=new String[]{"dual","rear","front"}[n];settings.put("mode",mode);closeAlignment(null);d.dismiss();}).setNegativeButton("Cancel",null).show();});
   menuItem(video,alignment==null?"Open camera view":"Close camera view",dialog,()->{dialog.dismiss();if(RecordingService.running){Toast.makeText(this,"Live view stays on while recording",Toast.LENGTH_SHORT).show();return;}if(alignment!=null){autoView=false;closeAlignment(null);}else{autoView=true;request(false);}});
   LinearLayout overlays=setupMenu.add("overlays","Ride","Speed & overlays","GPS speed, data overlays and stabilisation");
