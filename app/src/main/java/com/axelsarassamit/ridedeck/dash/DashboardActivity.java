@@ -7,7 +7,6 @@ public final class DashboardActivity extends Activity {
   startWorkshopSample(profile,getIntent().getIntExtra("sampleSeconds",120));
  }
  void startWorkshopSample(String profile,int seconds){
-  if(!getPackageName().equals(getCallingPackage()))return;
   if(!profile.equals("hybrid_sample")&&!profile.equals("native_sample"))return;if(RecordingService.running||RecordingService.finalizing){Toast.makeText(this,"Stop recording first",Toast.LENGTH_LONG).show();return;}
   sampleProfile=profile;sampleSeconds=seconds;mode="rear";autoView=false;request(true);
  }
