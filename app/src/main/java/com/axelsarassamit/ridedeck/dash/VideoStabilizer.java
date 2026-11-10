@@ -125,10 +125,16 @@ class VideoStabilizer implements MatrixTransformation {
             // Exclude fixed cockpit, logo and common overlay panels. Track the distant road scene.
             Imgproc.rectangle(mask,new Point(previous.cols()*0.08,previous.rows()*0.06),new Point(previous.cols()*0.92,previous.rows()*0.65),new Scalar(255),-1);
             Imgproc.goodFeaturesToTrack(previous,corners,300,0.015,12,mask,3,false,0.04);
-            if(corners.rows()<15)return null;points.fromArray(corners.toArray());Video.calcOpticalFlowPyrLK(previous,current,points,next,status,errors);
-            Video.calcOpticalFlowPyrLK(current,previous,next,back,backStatus,backErrors);
+            if(corners.rows()<15)return null;points.fromArray(corners.toArray());
+            Size pyrSize=new Size(31,31);
+            TermCriteria criteria=new TermCriteria(TermCriteria.COUNT+TermCriteria.EPS,30,0.01);
+            Video.calcOpticalFlowPyrLK(previous,current,points,next,status,errors,pyrSize,4,criteria,0,1e-4);
+            Video.calcOpticalFlowPyrLK(current,previous,next,back,backStatus,backErrors,pyrSize,4,criteria,0,1e-4);
             Point[] from=points.toArray(),to=next.toArray(),returned=back.toArray();byte[] valid=status.toArray(),backValid=backStatus.toArray();float[] error=errors.toArray();List<Point> a=new ArrayList<>(),b=new ArrayList<>();
-            for(int i=0;i<valid.length;i++)if(valid[i]!=0&&backValid[i]!=0&&error[i]<25&&Math.hypot(from[i].x-returned[i].x,from[i].y-returned[i].y)<=1.5){a.add(from[i]);b.add(to[i]);}
+            for(int i=0;i<valid.length;i++)if(valid[i]!=0&&backValid[i]!=0&&error[i]<25&&Math.hypot(from[i].x-returned[i].x,from[i].y-returned[i].y)<=1.5){
+                double disp=Math.hypot(to[i].x-from[i].x,to[i].y-from[i].y);
+                if(disp>0.25){a.add(from[i]);b.add(to[i]);}
+            }
             if(a.size()<12)return null;points.fromList(a);next.fromList(b);affine=Calib3d.estimateAffinePartial2D(points,next,inliers,Calib3d.RANSAC,3,1000,0.99,10);
             if(affine.empty()||Core.countNonZero(inliers)<12||Core.countNonZero(inliers)<a.size()*0.45)return null;
             double cos=affine.get(0,0)[0],sin=affine.get(1,0)[0],dx=affine.get(0,2)[0],dy=affine.get(1,2)[0],scale=Math.hypot(cos,sin),angle=Math.atan2(sin,cos);

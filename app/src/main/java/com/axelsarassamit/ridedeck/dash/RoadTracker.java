@@ -23,10 +23,17 @@ final class RoadTracker {
                 try{Imgproc.goodFeaturesToTrack(tile,corners,20,.015,10);for(Point p:corners.toArray())distributed.add(new Point(p.x+x0,p.y+y0));}finally{tile.release();}
             }
             if(distributed.size()<12)return null;
-            points.fromList(distributed);Video.calcOpticalFlowPyrLK(previous,current,points,next,status,errors);Video.calcOpticalFlowPyrLK(current,previous,next,back,backStatus,backErrors);
+            points.fromList(distributed);
+            Size pyrSize=new Size(31,31);
+            TermCriteria criteria=new TermCriteria(TermCriteria.COUNT+TermCriteria.EPS,30,0.01);
+            Video.calcOpticalFlowPyrLK(previous,current,points,next,status,errors,pyrSize,4,criteria,0,1e-4);
+            Video.calcOpticalFlowPyrLK(current,previous,next,back,backStatus,backErrors,pyrSize,4,criteria,0,1e-4);
             Point[] from=points.toArray(),to=next.toArray(),returned=back.toArray();byte[] valid=status.toArray(),reverse=backStatus.toArray();float[] error=errors.toArray();
             List<Point> a=new ArrayList<>(),b=new ArrayList<>();
-            for(int i=0;i<valid.length;i++)if(valid[i]!=0&&reverse[i]!=0&&error[i]<25&&Math.hypot(from[i].x-returned[i].x,from[i].y-returned[i].y)<=1.5){a.add(from[i]);b.add(to[i]);}
+            for(int i=0;i<valid.length;i++)if(valid[i]!=0&&reverse[i]!=0&&error[i]<25&&Math.hypot(from[i].x-returned[i].x,from[i].y-returned[i].y)<=1.5){
+                double disp=Math.hypot(to[i].x-from[i].x,to[i].y-from[i].y);
+                if(disp>0.25){a.add(from[i]);b.add(to[i]);}
+            }
             if(a.size()<12)return null;points.fromList(a);next.fromList(b);
             affine=Calib3d.estimateAffinePartial2D(points,next,inliers,Calib3d.RANSAC,2.5,1500,.995,10);
             if(affine.empty())return null;byte[] flags=new byte[(int)inliers.total()];inliers.get(0,0,flags);

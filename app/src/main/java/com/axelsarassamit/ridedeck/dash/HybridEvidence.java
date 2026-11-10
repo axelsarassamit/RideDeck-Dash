@@ -24,7 +24,7 @@ final class HybridEvidence {
         try(BufferedReader in=Files.newBufferedReader(new File(ride,"frames.csv").toPath(),StandardCharsets.UTF_8)){
             String header=in.readLine();if(header==null||!header.startsWith("sensor_ns,callback_elapsed_ns,camera,recording_file_at_callback,"))throw new IOException("Camera timing format is not supported");
             String line;int rows=0;while((line=in.readLine())!=null){if(++rows%1024==0&&cancelled.getAsBoolean())throw new IOException("Preparation cancelled");String[] v=line.split(",",-1);if(v.length<14||!v[2].equals("rear")||!v[3].equals(video.getName()))continue;
-                if(!v[8].equals("0")||!v[9].equals("0"))throw new IOException("This clip uses native stabilization. Record a separate hybrid sample from Setup > Calibration & samples");
+                if(!v[8].equals("0")||(!v[9].equals("0")&&(v.length<=19||v[19].isEmpty())))throw new IOException("This clip uses native stabilization without recorded OIS samples. Record a separate hybrid sample from Setup > Calibration & samples");
                 long sensor=Long.parseLong(v[0]);long exposure=Long.parseLong(v[5]),readout=Long.parseLong(v[7]);
                 if(readout<=0||readout>40000000||exposure<=0)throw new IOException("Camera readout or exposure timing is unavailable");
                 if(anchor==0)anchor=sensor;
