@@ -27,6 +27,7 @@ public final class SettingsActivity extends Activity {
   choice("Keep phone space free","reserve",new int[]{256,512,1024,2048,4096},new String[]{"256 MB","512 MB","1 GB","2 GB","4 GB"},512);
   choice("Protection before and after button press","protect",new int[]{15,30,60,120,300},new String[]{"15 seconds","30 seconds","1 minute","2 minutes","5 minutes"},60);
   choice("Stabilization","stabilization",new int[]{1,0},new String[]{"Best verified available","Off"},1);
+  DashUi.text(this,page,"Note: Hardware OIS and EIS depend heavily on the phone and selected lens. Ultrawide and auxiliary lenses often lack hardware OIS/EIS support. When using lenses without hardware stabilization, use Road-Adaptive stabilization in Dash Studio for post-process anti-shake.",15);
   choice("Motion data","motion_data",new int[]{1,0},new String[]{"Save motion data","Off"},1);
   choice("Motion data limit per ride","motion_limit",new int[]{128,256,512,1024},new String[]{"128 MB","256 MB","512 MB","1 GB"},512);
   choice("Rear camera focus","rearFocus",new int[]{1,2,0},new String[]{"Road: distant focus locked","Road: approximately 5 metres locked","Continuous autofocus"},1);
