@@ -1,4 +1,7 @@
-plugins { id("com.android.application") }
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
 android {
     namespace = "com.axelsarassamit.ridedeck.dash"
     compileSdk = 36
@@ -8,7 +11,7 @@ android {
         minSdk = 26
         targetSdk = 35
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        val releaseVersion = (System.getenv("DASH_VERSION_NAME") ?: "1.0.0").removePrefix("v")
+        val releaseVersion = (System.getenv("DASH_VERSION_NAME") ?: "1.3.4").removePrefix("v")
         require(Regex("[0-9]{1,3}\\.[0-9]{1,2}\\.[0-9]{1,2}").matches(releaseVersion)) { "Use numeric major.minor.patch; minor and patch must be under 100" }
         val parts = releaseVersion.split(".").map(String::toInt)
         versionCode = parts[0] * 10000 + parts[1] * 100 + parts[2]
@@ -26,7 +29,7 @@ android {
         }
     }
     buildTypes {
-        debug { applicationIdSuffix = ".debug"; versionNameSuffix = "-dev" }
+        debug { versionNameSuffix = "-dev" }
         release { signingConfig = signingConfigs.getByName("release") }
     }
     testBuildType = providers.gradleProperty("phoneTestVariant").orElse("debug").get()
@@ -34,6 +37,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    kotlinOptions { jvmTarget = "17" }
 }
 dependencies {
     implementation("org.opencv:opencv:4.12.0")
