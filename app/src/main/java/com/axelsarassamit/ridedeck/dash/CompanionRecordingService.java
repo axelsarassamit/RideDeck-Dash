@@ -19,7 +19,7 @@ public final class CompanionRecordingService extends Service {
                 throw new IllegalStateException("Start a RideDeck ride session first");
             if (request.what == 2 || request.what == 3) {
                 long now = SystemClock.elapsedRealtime();
-                if (request.what == 2) PreviewFrames.companionPreviewUntil = now + 1500;
+                if (request.what == 2) PreviewFrames.companionPreviewUntil = now + 4000;
                 result.putBoolean("accepted", true);
                 result.putBoolean("recording", RecordingService.capturing);
                 result.putBoolean("starting", RecordingService.running && !RecordingService.capturing && !RecordingService.finalizing);
@@ -62,10 +62,10 @@ public final class CompanionRecordingService extends Service {
         return true;
     }));
     private static void addFrame(Bundle result, String name, android.graphics.Bitmap bitmap, long at, long now) {
-        if (bitmap == null || now - at > 1000 || at == 0) return;
+        if (bitmap == null || now - at > 4000 || at == 0) return;
         java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
         bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 65, bytes);
-        if (bytes.size() <= 100000) result.putByteArray(name + "Jpeg", bytes.toByteArray());
+        if (bytes.size() <= 150000) result.putByteArray(name + "Jpeg", bytes.toByteArray());
     }
     private static void respond(Message request, Bundle result) {
         if (request.replyTo != null) {
