@@ -49,7 +49,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --prerelease --title "RideDeck Dash $GITHUB_REF_NAME" --notes-file docs/RELEASE_NOTES.md
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "RideDeck Dash $GITHUB_REF_NAME" --notes-file docs/RELEASE_NOTES.md
       - name: Remove temporary signing material
         if: always()
         run: rm -f "$RUNNER_TEMP/dash-release.p12"
