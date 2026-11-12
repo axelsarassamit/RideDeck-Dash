@@ -81,7 +81,7 @@ jobs:
           trap 'rm -f "$DASH_KEYSTORE_PATH"' EXIT
           printf '%s' "$KEYSTORE" | base64 --decode > "$DASH_KEYSTORE_PATH"
           unset KEYSTORE
-          bash gradlew :app:testDebugUnitTest :app:lintRelease :app:assembleRelease :app:assembleReleaseAndroidTest -PphoneTestVariant=release --no-daemon --max-workers=2
+          bash gradlew :app:testReleaseUnitTest :app:lintRelease :app:assembleRelease :app:assembleReleaseAndroidTest -PphoneTestVariant=release --no-daemon --max-workers=2
           mkdir -p delivery
           cp app/build/outputs/apk/release/app-release.apk delivery/ridedeck-dash-release.apk
           cp app/build/outputs/apk/androidTest/release/app-release-androidTest.apk delivery/dash-original-key-tests.apk

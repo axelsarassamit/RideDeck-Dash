@@ -14,7 +14,7 @@ The prerequisite independently reads that GitHub run and requires matching40SHA/
 
 No credentials are persisted by checkout. Existing original DASH_KEYSTORE_BASE64 and DASH_KEYSTORE_PASSWORD secrets are supplied only to the build step. The key is decoded into RUNNER_TEMP with restrictive permissions and removed by both a shell trap and an always cleanup step. No debug key fallback exists.
 
-Build targets: testDebugUnitTest, lintRelease, assembleRelease and assembleReleaseAndroidTest with -PphoneTestVariant=release and2workers. app/build.gradle.kts already provides the required testBuildType property. No new app or test variant configuration was needed. Version stays0.13.7/code101307.
+Build targets: testReleaseUnitTest, lintRelease, assembleRelease and assembleReleaseAndroidTest with -PphoneTestVariant=release and2workers. app/build.gradle.kts already provides the required testBuildType property. No new app or test variant configuration was needed. Version stays0.13.7/code101307.
 
 Before delivery, main APK verification requires exact production package,0.13.7/code101307, no application-debuggable flag and original certificate cef073342e133ad4c6650da1a276ae4ad03e3396cecac67143154aeb6e6c731b. The separate instrumentation APK must have production .test package, AndroidJUnitRunner targeting production Dash and the same original certificate. Instrumentation APKs may themselves be debuggable; that is not a relaxation for the main app.
 
@@ -56,3 +56,7 @@ Validation of this adaptation: final YAML parses, all shell blocks pass bash -n,
 ## Verifier prerequisite update
 
 The Yamaha owner supplied actual XML-tree manifest inspection in scripts/apk_manifest.py, the repaired QA verifier and the standalone migration verifier, with recorded real-tool fixtures. The delivery prerequisite now runs python3 -m unittest discover -s scripts/tests -p 'test_*.py' before the CI gate or signing job. Failure blocks delivery. This does not execute migration instrumentation or authorize signing/phone actions. The coordinator still owns final helper validation and combined rollout approval.
+
+## Release-variant task correction
+
+The first private signing run failed because AGP9.4.1 exposes testReleaseUnitTest, rather than testDebugUnitTest, when phoneTestVariant=release. The signing workflow now selects the release unit-test task alongside release assembly and release instrumentation. The failed run is retained; source CI remains a separate exact-commit prerequisite.
