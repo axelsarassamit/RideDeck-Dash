@@ -89,6 +89,27 @@ Require `IMPORTED`, then `VERIFIED` with two providers. The helper calls target 
 
 ## Rehearsal evidence and limits
 
+### Dash recording dates
+
+Separate operations `restoreFileTimes` and `verifyFileTimes` preserve Dash's recording date-window behavior after content restoration. They accept only existing `files/recordings/**` files in a Dash production/debug target; the archive schema and archive restore operations are unchanged. The fixed input is `/data/local/tmp/ridedeck-filetimes.json`, with required argument `fileTimesSha256`. Schema 1 has exactly `schema`, `targetPackage`, `files`; each row has exactly `path`, `bytes`, `sha256`, `modifiedMs`. Use original TAR `mtime * 1000` (second precision), not archive extraction time. The coordinator prepares and pins this private derived input.
+
+All rows undergo duplicate/path/type/bounds validation and every existing file is fully size/SHA checked before any recording timestamp changes. Limits are the archive entry/per-file/total bounds; input is at most 4 MiB and timestamps are nonnegative through year 9999. Each file is rechecked before `File.setLastModified`, then its exact timestamp is verified. No recording creation, content write or deletion occurs. A partial timestamp failure leaves already updated timestamps in place; retain the pinned input and repeat safely. There is no content rollback or recording deletion. A pending archive/provider journal blocks these operations.
+
+With the explicit Dash target/helper component and device variables set as above:
+
+```powershell
+$fileTimes = Read-Host 'Absolute path to approved recording timestamp manifest'
+$fileTimesHash = (Get-FileHash -LiteralPath $fileTimes -Algorithm SHA256).Hash.ToLowerInvariant()
+& $adb -s $serial push $fileTimes /data/local/tmp/ridedeck-filetimes.json
+& $adb -s $serial shell chmod 600 /data/local/tmp/ridedeck-filetimes.json
+& $adb -s $serial shell am instrument -w -e targetPackage $targetPackage -e fileTimesSha256 $fileTimesHash -e operation restoreFileTimes $component
+& $adb -s $serial shell am instrument -w -e targetPackage $targetPackage -e fileTimesSha256 $fileTimesHash -e operation verifyFileTimes $component
+```
+
+Require `FILE_TIMES_RESTORED` then `FILE_TIMES_VERIFIED` with the expected `fileTimesVerified` count. On failure that count records the successfully verified prefix only. The new timestamp operation still requires coordinator build/rehearsal verification; earlier archive rehearsal evidence below does not cover it.
+
 As reported by the coordinating chat on 2026-11-12: combined helper JVM tests/build passed; Yamaha emulator validated, restored and verified three files/three preference maps. A 4096-byte partial-copy fault rolled back; an after-create fault safely refused rollback and explicit recovery. Separate instrumentation processes imported and verified both real provider entries without logging values. Dash emulator also validated, restored and verified ten files/two preference maps, including both recording files; its partial-copy fault rolled back. Yamaha archive verification after provider import passed. The private raw snapshots remain intact; only reviewed restore inventories were exercised. An actual emulator process stop during a durable4096-byte partial copy was followed by successful explicit recovery, restore and verification. An edited existing file was rejected and preserved byte-for-byte. A separate process stop after completed-journal retirement also recovered through fresh pinned verification; a normal repeat restore then passed. These results do not establish production phone migration, road behavior, camera capture or compatibility with a different target APK.
 
-Preview-only fault arguments are `simulateFailureAfter=N`, `simulateCopyFailureAfterBytes=N`, `simulateCopyPauseAfterBytes=N` (preview restore only; fsync then pause 15 seconds once for an external process-stop rehearsal), and `simulateFailureAfterCreate=YES`. Use fresh disposable isolated targets, never production. An after-create refusal may require coordinator-controlled reset of that disposable target; it does not authorize clearing a production app. The pure regression suite has 19 test methods covering settings and ownership/prefix decisions; it complements, rather than replaces, real filesystem/process-death recovery rehearsals.
+Preview-only fault arguments are `simulateFailureAfter=N`, `simulateCopyFailureAfterBytes=N`, `simulateCopyPauseAfterBytes=N` (preview restore only; fsync then pause 15 seconds once for an external process-stop rehearsal), and `simulateFailureAfterCreate=YES`. Use fresh disposable isolated targets, never production. An after-create refusal may require coordinator-controlled reset of that disposable target; it does not authorize clearing a production app. The pure regression suite has 22 test methods covering settings and ownership/prefix decisions; it complements, rather than replaces, real filesystem/process-death recovery rehearsals.
+
+Timestamp follow-up: the Dash emulator reproduced the current-time mismatch, then restored and verified all ten original raw-TAR modification times. A wrong hash in the last row was rejected before the first timestamp changed; independent file hashes remained identical. Source TAR timestamps have second precision, converted to milliseconds. This is metadata preservation, not a recording-content rewrite.

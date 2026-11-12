@@ -119,6 +119,9 @@ public final class MigrationInstrumentation extends Instrumentation {
             sourceFor(target.getPackageName());
             checkQuiescent();
             String operation=arguments.getString("operation","");
+            if(operation.equals("restoreFileTimes")||operation.equals("verifyFileTimes")){
+                new FileTimes(this).run(operation,result);finish(Activity.RESULT_OK,result);return;
+            }
             String pause=arguments.getString("simulateCopyPauseAfterBytes");
             // Reject production/non-restore pause requests before workspace or
             // archive staging writes, not merely immediately before applyPlan.
@@ -194,6 +197,11 @@ public final class MigrationInstrumentation extends Instrumentation {
         // Fixed literal only. Never concatenate an argument, key, filename or package into a shell command.
         try(ParcelFileDescriptor fd=getUiAutomation().executeShellCommand("cat /data/local/tmp/ridedeck-provider-overrides.json");InputStream in=new ParcelFileDescriptor.AutoCloseInputStream(fd)){
             return readBounded(in,4096);
+        }
+    }
+    byte[] fixedFileTimesInput() throws Exception {
+        try(ParcelFileDescriptor fd=getUiAutomation().executeShellCommand("cat /data/local/tmp/ridedeck-filetimes.json");InputStream in=new ParcelFileDescriptor.AutoCloseInputStream(fd)){
+            return readBounded(in,MAX_MANIFEST);
         }
     }
     private void copyShellArchive(File output) throws Exception {

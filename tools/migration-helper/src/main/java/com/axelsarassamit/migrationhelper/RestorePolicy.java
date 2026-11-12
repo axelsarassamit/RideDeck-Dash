@@ -5,6 +5,12 @@ import java.util.Map;
 /** Pure decisions shared by migration operations and host regression tests. */
 final class RestorePolicy {
     private RestorePolicy(){}
+    static boolean fileTimesPath(String path){
+        if(path==null||path.length()>1024||!path.startsWith("files/recordings/")||path.indexOf('\\')>=0||path.indexOf(':')>=0)return false;
+        for(String part:path.split("/",-1))if(part.isEmpty()||part.equals(".")||part.equals("..")||part.matches(".*[\\x00-\\x1f\\x7f].*"))return false;
+        return true;
+    }
+    static boolean fileTimeMillis(long value){return value>=0&&value<=253402300799000L;}
     static boolean validPreviewCopyPause(boolean preview,String value,long maxBytes){
         return preview&&value!=null&&value.matches("[1-9][0-9]{0,9}")&&Long.parseLong(value)<=maxBytes;
     }

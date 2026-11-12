@@ -23,6 +23,9 @@ public final class RestorePolicyTest {
     @Test public void prefixAllowsOnlyVerifiedBytes(){assertTrue(RestorePolicy.matchingPrefixChunk(new byte[]{1,2,9},new byte[]{1,2,3},2));assertFalse(RestorePolicy.matchingPrefixChunk(new byte[]{1,9},new byte[]{1,2},2));}
     @Test public void prefixRejectsInvalidLength(){assertFalse(RestorePolicy.matchingPrefixChunk(new byte[]{1},new byte[]{1},2));assertFalse(RestorePolicy.matchingPrefixChunk(new byte[]{1},new byte[]{1},-1));}
     @Test public void emptyPrefixIsValid(){assertTrue(RestorePolicy.matchingPrefixChunk(new byte[0],new byte[]{1},0));}
+    @Test public void fileTimesLimitedToRecordings(){assertTrue(RestorePolicy.fileTimesPath("files/recordings/synthetic.mp4"));assertFalse(RestorePolicy.fileTimesPath("databases/anything"));assertFalse(RestorePolicy.fileTimesPath("files/recordings/"));assertFalse(RestorePolicy.fileTimesPath(null));}
+    @Test public void fileTimesRejectUnsafePaths(){assertFalse(RestorePolicy.fileTimesPath("files/recordings/../private"));assertFalse(RestorePolicy.fileTimesPath("files/recordings/a\\b"));assertFalse(RestorePolicy.fileTimesPath("files/recordings/a/./b"));}
+    @Test public void fileTimesBounded(){assertTrue(RestorePolicy.fileTimeMillis(0));assertTrue(RestorePolicy.fileTimeMillis(1794450000000L));assertFalse(RestorePolicy.fileTimeMillis(-1));assertFalse(RestorePolicy.fileTimeMillis(253402300799001L));}
     @Test public void copyPauseAcceptsPreviewBounds(){assertTrue(RestorePolicy.validPreviewCopyPause(true,"1",4294967296L));assertTrue(RestorePolicy.validPreviewCopyPause(true,"4294967296",4294967296L));}
     @Test public void copyPauseRejectsProduction(){assertFalse(RestorePolicy.validPreviewCopyPause(false,"4096",4294967296L));}
     @Test public void copyPauseRejectsInvalidAndOversize(){for(String value:new String[]{null,"0","-1","01","4294967297","99999999999","1.0"," 1"})assertFalse(RestorePolicy.validPreviewCopyPause(true,value,4294967296L));}
