@@ -125,7 +125,7 @@ public final class SocialStudioActivity extends Activity {
                 slider("Brightness","studio_brightness",-50,50,0);slider("Contrast","studio_contrast",-50,50,0);slider("Saturation","studio_saturation",-100,100,0);option("Colour presets",()->choice("Picture look",new String[]{"Natural","Clear road","Soft","Black & white"},i->{setting("studio_brightness",new int[]{0,5,5,0}[i]);setting("studio_contrast",new int[]{0,12,-10,10}[i]);setting("studio_saturation",new int[]{0,8,-15,-100}[i]);}));break;
             case "Stabilize":
                 boolean labSample=isLabSample();
-                int currentStrength=recipe.number("studio_stabilize",1);
+                int currentStrength=recipe.number("studio_stabilize",0);
                 String strengthLabel=currentStrength==0?"Off (0%)":currentStrength==1?"Gentle (12% zoom)":currentStrength==2?"Strong (22% zoom)":"Maximum (35% zoom)";
                 option("Smoothing strength: "+strengthLabel,()->choice("Stabilization strength",new String[]{"Off (0%)","Gentle (12% zoom)","Strong (22% zoom)","Maximum (35% zoom)"},i->setting("studio_stabilize",i)));
                 option("Engine: "+(labSample&&recipe.number("studio_hybrid",0)==1?"Hybrid lab (experimental)":recipe.number("studio_road",1)==1?"Road adaptive":"Classic image"),()->choice("Stabilization engine",

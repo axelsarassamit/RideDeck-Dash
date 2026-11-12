@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <queries>
+        <package android:name="com.axelsarassamit.gx12.preview" />
+        <package android:name="com.axelsarassamit.gx12.yamaha.preview" />
+    </queries>
+</manifest>

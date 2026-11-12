@@ -1,0 +1,144 @@
+name: Original-key private delivery
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact 40-character main commit to deliver
+        required: true
+        type: string
+      ci_run_id:
+        description: Manually checked successful Android build run for that exact commit
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: dash-original-key-private-delivery
+  cancel-in-progress: false
+jobs:
+  prerequisite:
+    runs-on: ubuntu-latest
+    outputs:
+      source_sha: ${{ steps.verify.outputs.source_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate release and migration verifier contracts
+        run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+      - name: Verify manual exact-CI prerequisite
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          CI_RUN_ID: ${{ inputs.ci_run_id }}
+        run: python3 scripts/validate_original_delivery.py --source-sha "$SOURCE_SHA" --ci-run-id "$CI_RUN_ID"
+  deliver:
+    needs: prerequisite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      SOURCE_SHA: ${{ needs.prerequisite.outputs.source_sha }}
+      CI_RUN_ID: ${{ inputs.ci_run_id }}
+      DASH_VERSION_NAME: '0.13.7'
+      DASH_VERSION_CODE: '101307'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prerequisite.outputs.source_sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify checkout is the requested main-history commit
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git merge-base --is-ancestor "$SOURCE_SHA" origin/main
+          # GITHUB_TOKEN cannot create a draft targeting different workflow files.
+          git diff --quiet "$SOURCE_SHA" origin/main -- .github/workflows
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@v4
+      - run: sdkmanager "build-tools;36.0.0" "platforms;android-36"
+      - name: Build with preserved original key and verify before delivery
+        env:
+          KEYSTORE: ${{ secrets.DASH_KEYSTORE_BASE64 }}
+          DASH_KEYSTORE_PASSWORD: ${{ secrets.DASH_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE"
+          test -n "$DASH_KEYSTORE_PASSWORD"
+          umask 077
+          export DASH_KEYSTORE_PATH="$RUNNER_TEMP/dash-original-delivery.p12"
+          trap 'rm -f "$DASH_KEYSTORE_PATH"' EXIT
+          printf '%s' "$KEYSTORE" | base64 --decode > "$DASH_KEYSTORE_PATH"
+          unset KEYSTORE
+          bash gradlew :app:testDebugUnitTest :app:lintRelease :app:assembleRelease :app:assembleReleaseAndroidTest -PphoneTestVariant=release --no-daemon --max-workers=2
+          mkdir -p delivery
+          cp app/build/outputs/apk/release/app-release.apk delivery/ridedeck-dash-release.apk
+          cp app/build/outputs/apk/androidTest/release/app-release-androidTest.apk delivery/dash-original-key-tests.apk
+          python3 scripts/verify_release_apk.py --apk delivery/ridedeck-dash-release.apk --tag v0.13.7 --build-tools "$ANDROID_HOME/build-tools/36.0.0"
+          python3 scripts/verify_original_delivery.py --test-apk delivery/dash-original-key-tests.apk --build-tools "$ANDROID_HOME/build-tools/36.0.0"
+          # Freeze the already validated app, then build a separate hash-bound import helper.
+          TARGET_APK_SHA256="$(sha256sum delivery/ridedeck-dash-release.apk | cut -d ' ' -f 1)"
+          test -f tools/migration-helper/build.gradle.kts
+          test -f scripts/verify_migration_delivery.py
+          bash gradlew -p tools/migration-helper assembleRelease -PtargetPackage=com.axelsarassamit.ridedeck.dash -PexpectedTargetApkSha256="$TARGET_APK_SHA256" --no-daemon --max-workers=2
+          UNSIGNED_HELPER="tools/migration-helper/build/outputs/apk/release/RideDeckMigrationHelper-release-unsigned.apk"
+          test -f "$UNSIGNED_HELPER"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign --ks "$DASH_KEYSTORE_PATH" --ks-key-alias ridedeck-dash --ks-pass env:DASH_KEYSTORE_PASSWORD --key-pass env:DASH_KEYSTORE_PASSWORD --out delivery/migration-helper.apk "$UNSIGNED_HELPER"
+          test "$(sha256sum delivery/ridedeck-dash-release.apk | cut -d ' ' -f 1)" = "$TARGET_APK_SHA256"
+          python3 scripts/verify_migration_delivery.py --helper-apk delivery/migration-helper.apk --target-apk delivery/ridedeck-dash-release.apk --build-tools "$ANDROID_HOME/build-tools/36.0.0"
+          printf 'repository=%s\ncommit=%s\nversion=0.13.7\nversionCode=101307\nandroid_ci_run=%s\nmigration_target_apk_sha256=%s\nmigration_helper_package=com.axelsarassamit.migrationhelper.dash_release\nmigration_runner=com.axelsarassamit.migrationhelper.MigrationInstrumentation\nstatus=private-original-key-migration-candidate\n' "$GITHUB_REPOSITORY" "$SOURCE_SHA" "$CI_RUN_ID" "$TARGET_APK_SHA256" > delivery/source.txt
+          (cd delivery && sha256sum ridedeck-dash-release.apk dash-original-key-tests.apk migration-helper.apk source.txt > checksums.txt)
+      - name: Save an unpublished private delivery draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # No numeric release, no v* tag, no git tag/push, no public artifact upload.
+          export DELIVERY_TAG="delivery-original-key-${SOURCE_SHA:0:12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          python3 - <<'PY'
+          import json, os
+          payload = {
+              "tag_name": os.environ["DELIVERY_TAG"],
+              "target_commitish": os.environ["SOURCE_SHA"],
+              "name": "PRIVATE DELIVERY ONLY: Dash original-key migration candidate",
+              "body": "Do not publish this draft. No phone installation is authorized by this workflow. Review checksums and source provenance, complete the private backup/restore rehearsal, and obtain separate approval before any uninstall or migration. App, separate QA instrumentation and hash-bound migration helper APKs only; no user data or provider configuration is included.",
+              "draft": True,
+              "prerelease": True,
+              "make_latest": "false"
+          }
+          with open("delivery-request.json", "w", encoding="utf-8") as out:
+              json.dump(payload, out)
+          PY
+          gh api --method POST "repos/$GITHUB_REPOSITORY/releases" --input delivery-request.json > draft-response.json
+          python3 - <<'PY'
+          import json, os
+          with open("draft-response.json", encoding="utf-8") as source:
+              draft = json.load(source)
+          if draft.get("draft") is not True or draft.get("published_at") is not None or draft.get("tag_name") != os.environ["DELIVERY_TAG"]:
+              raise SystemExit("Delivery must remain an unpublished draft")
+          PY
+          gh release upload "$DELIVERY_TAG" delivery/ridedeck-dash-release.apk delivery/dash-original-key-tests.apk delivery/migration-helper.apk delivery/checksums.txt delivery/source.txt --repo "$GITHUB_REPOSITORY"
+          RELEASE_ID="$(python3 -c 'import json; print(json.load(open("draft-response.json"))["id"])')"
+          gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" > draft-final.json
+          python3 - <<'PY'
+          import json
+          with open("draft-final.json", encoding="utf-8") as source:
+              draft = json.load(source)
+          if draft.get("draft") is not True or draft.get("published_at") is not None:
+              raise SystemExit("Unexpected public release state")
+          print("Saved unpublished original-key draft for authorized repository writers: " + draft["html_url"])
+          PY
+      - name: Remove temporary signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/dash-original-delivery.p12"

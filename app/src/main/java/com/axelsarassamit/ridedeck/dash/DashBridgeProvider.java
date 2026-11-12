@@ -17,7 +17,6 @@ import java.util.Locale;
 /** Authenticated heartbeat only. This provider never opens a camera. */
 public final class DashBridgeProvider extends ContentProvider {
     public static final RideSessionPolicy SESSIONS = new RideSessionPolicy();
-    private static final String HOST_CERT = "79f76edba53e22dcb9e4610dc5fa151e5c52d0895c68b2802444f1ced3a1c06f";
     @Override public boolean onCreate() { return true; }
     @Override public Bundle call(String method, String arg, Bundle extras) {
         String caller = verifiedCaller(getContext(), Binder.getCallingUid());
@@ -58,22 +57,30 @@ public final class DashBridgeProvider extends ContentProvider {
     static String verifiedCaller(android.content.Context context, int uid) {
         PackageManager pm = context.getPackageManager();
         String[] packages = pm.getPackagesForUid(uid);
+        String ownCertificate = null;
+        if (BuildConfig.DEBUG) try { ownCertificate = certificate(pm, context.getPackageName()); }
+        catch (Exception ignored) { /* Unknown debug signing state grants no debug access. */ }
         if (packages != null) for (String name : packages) {
-            if (!RideSessionPolicy.STANDARD.equals(name) && !RideSessionPolicy.YAMAHA.equals(name)) continue;
+            if (!RideSessionPolicy.STANDARD.equals(name) && !RideSessionPolicy.YAMAHA.equals(name)
+                    && !(BuildConfig.DEBUG && ((RideSessionPolicy.STANDARD + ".preview").equals(name)
+                    || (RideSessionPolicy.YAMAHA + ".preview").equals(name)))) continue;
             try {
-                if (BuildConfig.DEBUG) return name;
-                PackageInfo info = pm.getPackageInfo(name, Build.VERSION.SDK_INT >= 28
-                    ? PackageManager.GET_SIGNING_CERTIFICATES : PackageManager.GET_SIGNATURES);
-                Signature[] signers = Build.VERSION.SDK_INT >= 28
-                    ? info.signingInfo.getApkContentsSigners() : info.signatures;
-                if (signers == null || signers.length != 1) continue;
-                byte[] digest = MessageDigest.getInstance("SHA-256").digest(signers[0].toByteArray());
-                StringBuilder hex = new StringBuilder();
-                for (byte b : digest) hex.append(String.format(Locale.ROOT, "%02x", b & 255));
-                if (HOST_CERT.equals(hex.toString())) return name;
+                String host = CompanionCallerPolicy.canonicalHost(name, certificate(pm, name), BuildConfig.DEBUG, ownCertificate);
+                if (host != null) return host;
             } catch (Exception ignored) { /* Fail closed on unknown package/signing state. */ }
         }
         throw new SecurityException("Only signed RideDeck companion apps may renew a Dash ride session");
+    }
+    private static String certificate(PackageManager pm, String name) throws Exception {
+        PackageInfo info = pm.getPackageInfo(name, Build.VERSION.SDK_INT >= 28
+            ? PackageManager.GET_SIGNING_CERTIFICATES : PackageManager.GET_SIGNATURES);
+        Signature[] signers = Build.VERSION.SDK_INT >= 28
+            ? (info.signingInfo == null ? null : info.signingInfo.getApkContentsSigners()) : info.signatures;
+        if (signers == null || signers.length != 1) return null;
+        byte[] digest = MessageDigest.getInstance("SHA-256").digest(signers[0].toByteArray());
+        StringBuilder hex = new StringBuilder();
+        for (byte value : digest) hex.append(String.format(Locale.ROOT, "%02x", value & 255));
+        return hex.toString();
     }
     @Override public Cursor query(Uri u, String[] p, String s, String[] a, String o) { throw new UnsupportedOperationException(); }
     @Override public String getType(Uri u) { return null; }

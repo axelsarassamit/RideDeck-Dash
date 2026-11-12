@@ -31,8 +31,7 @@ final class RoadTracker {
             Point[] from=points.toArray(),to=next.toArray(),returned=back.toArray();byte[] valid=status.toArray(),reverse=backStatus.toArray();float[] error=errors.toArray();
             List<Point> a=new ArrayList<>(),b=new ArrayList<>();
             for(int i=0;i<valid.length;i++)if(valid[i]!=0&&reverse[i]!=0&&error[i]<25&&Math.hypot(from[i].x-returned[i].x,from[i].y-returned[i].y)<=1.5){
-                double disp=Math.hypot(to[i].x-from[i].x,to[i].y-from[i].y);
-                if(disp>0.25){a.add(from[i]);b.add(to[i]);}
+                a.add(from[i]);b.add(to[i]);
             }
             if(a.size()<12)return null;points.fromList(a);next.fromList(b);
             affine=Calib3d.estimateAffinePartial2D(points,next,inliers,Calib3d.RANSAC,2.5,1500,.995,10);

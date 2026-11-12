@@ -38,6 +38,7 @@ jobs:
           mkdir -p dist
           cp app/build/outputs/apk/release/app-release.apk dist/ridedeck-dash-release.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/ridedeck-dash-release.apk
+          python3 scripts/verify_release_apk.py --apk dist/ridedeck-dash-release.apk --tag "$GITHUB_REF_NAME" --build-tools "$ANDROID_HOME/build-tools/36.0.0"
           cd dist
           sha256sum ridedeck-dash-release.apk > checksums.txt
           printf 'repository=%s\ncommit=%s\ntag=%s\nstatus=development-dashcam\n' "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_REF_NAME" > source.txt

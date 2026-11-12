@@ -48,6 +48,12 @@ public class HybridExportTest {
         File frames=new File(harness.ride,"frames.csv");String s=new String(Files.readAllBytes(frames.toPath()),StandardCharsets.UTF_8);s=s.replace(",0,0,0,4,",",0,1,0,4,");Files.write(frames.toPath(),s.getBytes(StandardCharsets.UTF_8));
         try{HybridEvidence.load(clip,0,9000000,()->false);fail("Do not apply raw gyro correction over OIS");}catch(IOException expected){assertTrue(expected.getMessage().contains("native stabilization"));}
     }
+    @Test public void oisSamplesWithoutCompensationAreStillRejected()throws Exception {
+        File frames=new File(harness.ride,"frames.csv");List<String> rows=Files.readAllLines(frames.toPath(),StandardCharsets.UTF_8);
+        for(int i=1;i<rows.size();i++){String[] values=rows.get(i).split(",",-1);String[] extended=Arrays.copyOf(values,Math.max(values.length,21));for(int j=values.length;j<extended.length;j++)extended[j]="";extended[8]="0";extended[9]="1";extended[19]="1000000000:0.1:0.2";rows.set(i,String.join(",",extended));}
+        Files.write(frames.toPath(),rows,StandardCharsets.UTF_8);
+        try{HybridEvidence.load(clip,0,9000000,()->false);fail("Recorded OIS samples alone cannot enable raw gyro correction");}catch(IOException expected){assertTrue(expected.getMessage().contains("native stabilization"));}
+    }
     @Test public void incompleteMotionIsRejected()throws Exception {
         File meta=new File(harness.ride,"motion.json");JSONObject j=new JSONObject(new String(Files.readAllBytes(meta.toPath()),StandardCharsets.UTF_8));j.put("dropped_rows",1);Files.write(meta.toPath(),j.toString().getBytes(StandardCharsets.UTF_8));
         try{HybridEvidence.load(clip,0,9000000,()->false);fail("Incomplete evidence cannot enable hybrid correction");}catch(IOException expected){assertTrue(expected.getMessage().contains("incomplete"));}

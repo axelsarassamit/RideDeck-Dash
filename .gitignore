@@ -10,3 +10,5 @@ dist/
 *.apk
 *.zip
 design-build.log
+__pycache__/
+*.pyc

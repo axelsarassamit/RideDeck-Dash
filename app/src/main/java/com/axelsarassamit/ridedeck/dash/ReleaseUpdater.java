@@ -32,7 +32,7 @@ final class ReleaseUpdater {
             try {
                 JSONObject release = new JSONObject(read("https://api.github.com/repos/" + REPO + "/releases/latest"));
                 if (release.getBoolean("draft") || release.getBoolean("prerelease")) throw new IOException("No stable release available");
-                int code = versionCode(release.getString("tag_name"));
+                int code = ReleaseVersionPolicy.offeredCode(release.getString("tag_name"), release.getLong("id"));
                 if (code <= BuildConfig.VERSION_CODE) { message("You have the latest stable version."); return; }
                 String apkUrl = null, checksumUrl = null;
                 JSONArray assets = release.getJSONArray("assets");
@@ -77,11 +77,7 @@ final class ReleaseUpdater {
             finally { activity.runOnUiThread(() -> { button.setEnabled(true); button.setText("Check for updates"); }); }
         }, "dash-update").start();
     }
-    static int versionCode(String tag) {
-        if (!tag.matches("v[0-9]{1,3}\\.[0-9]{1,2}\\.[0-9]{1,2}")) throw new IllegalArgumentException("Invalid release version");
-        String[] p = tag.substring(1).split("\\.");
-        return Integer.parseInt(p[0]) * 10000 + Integer.parseInt(p[1]) * 100 + Integer.parseInt(p[2]);
-    }
+    static int versionCode(String tag) { return ReleaseVersionPolicy.encoded(tag); }
     private void validateIdentity(File apk, int expectedCode) throws Exception {
         PackageManager pm = activity.getPackageManager();
         int flags = Build.VERSION.SDK_INT >= 28 ? PackageManager.GET_SIGNING_CERTIFICATES : PackageManager.GET_SIGNATURES;

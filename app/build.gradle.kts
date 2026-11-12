@@ -11,10 +11,18 @@ android {
         minSdk = 26
         targetSdk = 35
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        val releaseVersion = (System.getenv("DASH_VERSION_NAME") ?: "1.3.8").removePrefix("v")
+        val releaseVersion = (System.getenv("DASH_VERSION_NAME") ?: "0.13.7").removePrefix("v")
         require(Regex("[0-9]{1,3}\\.[0-9]{1,2}\\.[0-9]{1,2}").matches(releaseVersion)) { "Use numeric major.minor.patch; minor and patch must be under 100" }
         val parts = releaseVersion.split(".").map(String::toInt)
-        versionCode = parts[0] * 10000 + parts[1] * 100 + parts[2]
+        // Epoch 100000 preserves updates from mistakenly distributed 1.x development APKs.
+        // Future production 1.0.0 = 110000, above every 0.x development version.
+        val encodedCode = 100000 + parts[0] * 10000 + parts[1] * 100 + parts[2]
+        val explicitCode = System.getenv("DASH_VERSION_CODE")
+        require(explicitCode == null || explicitCode.toIntOrNull() == encodedCode) {
+            "DASH_VERSION_CODE must equal the deterministic epoch version code $encodedCode so updater validation agrees"
+        }
+        require(encodedCode > 10308) { "Never downgrade the existing Dash update path" }
+        versionCode = encodedCode
         versionName = releaseVersion
     }
     signingConfigs {
@@ -29,7 +37,7 @@ android {
         }
     }
     buildTypes {
-        debug {}
+        debug { applicationIdSuffix = ".debug"; versionNameSuffix = "-dev" }
         release { signingConfig = signingConfigs.getByName("release") }
     }
     testBuildType = providers.gradleProperty("phoneTestVariant").orElse("debug").get()
